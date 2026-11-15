@@ -55,6 +55,7 @@ class _MainScaffoldState extends State<MainScaffold> {
             return Scaffold(
               appBar: AppBar(
                 title: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
                       width: 32,
@@ -70,7 +71,12 @@ class _MainScaffoldState extends State<MainScaffold> {
                       ),
                     ),
                     const SizedBox(width: 10),
-                    const Text('CadenceFlow'),
+                    const Flexible(
+                      child: Text(
+                        'CadenceFlow',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                   ],
                 ),
                 actions: [

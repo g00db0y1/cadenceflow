@@ -39,9 +39,11 @@ class AlertsScreen extends StatelessWidget {
               color: CadenceFlowTheme.q1CoralRed,
             ),
             const SizedBox(width: 8),
-            Text(
-              'Attention Feed (${attentionFeed.length} Active)',
-              style: Theme.of(context).textTheme.titleLarge,
+            Expanded(
+              child: Text(
+                'Attention Feed (${attentionFeed.length} Active)',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
             ),
           ],
         ),
