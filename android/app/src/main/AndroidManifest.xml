@@ -1,5 +1,4 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.cadenceflow.app">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!-- Network for Clerk Auth & Supabase Sync -->
     <uses-permission android:name="android.permission.INTERNET" />

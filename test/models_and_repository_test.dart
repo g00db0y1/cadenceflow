@@ -1,10 +1,17 @@
+import 'package:cadenceflow/data/local_storage_mirror.dart';
+import 'package:cadenceflow/data/productivity_repository.dart';
 import 'package:cadenceflow/models/appointment.dart';
 import 'package:cadenceflow/models/cadence_goal.dart';
 import 'package:cadenceflow/models/enums.dart';
 import 'package:cadenceflow/models/task_item.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+  });
+
   group('Supabase & Local Storage Model Serialization', () {
     test('TaskItem round-trips through toMap and fromMap', () {
       final now = DateTime.now();
@@ -62,7 +69,8 @@ void main() {
         userId: 'user_2p9xClerk',
         title: 'Architecture Review',
         locationOrLink: 'meet.google.com/abc-defg-hij',
-        startsAtMillis: now.add(const Duration(minutes: 10)).millisecondsSinceEpoch,
+        startsAtMillis:
+            now.add(const Duration(minutes: 10)).millisecondsSinceEpoch,
         leadMinutes: 15,
         repingIntervalMinutes: 5,
         alertStatus: AlertStatus.pinging,
@@ -73,6 +81,34 @@ void main() {
       final restored = Appointment.fromMap(appt.toMap());
       expect(restored.alertStatus, AlertStatus.pinging);
       expect(restored.isAttentionSeeking(now), isTrue);
+    });
+
+    test('ProductivityRepository seeds and persists offline CRUD in LocalStorageMirror',
+        () async {
+      final mirror = LocalStorageMirror();
+      final repo = ProductivityRepository(localMirror: mirror);
+      const userId = 'user_test_offline';
+
+      final initialTasks = await repo.fetchTasks(userId);
+      expect(initialTasks, isNotEmpty);
+
+      final now = DateTime.now();
+      final customTask = TaskItem(
+        id: 'custom_1',
+        userId: userId,
+        title: 'Offline Mirror Test Task',
+        quadrant: EisenhowerQuadrant.quickHandle,
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      await repo.upsertTask(userId, customTask);
+      final afterInsert = await repo.fetchTasks(userId);
+      expect(afterInsert.any((t) => t.id == 'custom_1'), isTrue);
+
+      await repo.deleteTask(userId, 'custom_1');
+      final afterDelete = await repo.fetchTasks(userId);
+      expect(afterDelete.any((t) => t.id == 'custom_1'), isFalse);
     });
   });
 }

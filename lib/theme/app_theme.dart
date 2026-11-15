@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 /// Clean, energetic Teal & Amber Material Design 3 theme with semantic
-/// Eisenhower quadrant tokens, custom Google Fonts (`Outfit`,
+/// Eisenhower quadrant tokens, custom typography (`Outfit`,
 /// `Plus Jakarta Sans`, `JetBrains Mono`), and full Light/Dark mode support.
 class CadenceFlowTheme {
   const CadenceFlowTheme._();
@@ -24,6 +23,10 @@ class CadenceFlowTheme {
   static const Color q2DeepTeal = Color(0xFF0D9488);
   static const Color q3WarmAmber = Color(0xFFD97706);
   static const Color q4CoolSlate = Color(0xFF64748B);
+
+  static const String headingFontFamily = 'Outfit';
+  static const String bodyFontFamily = 'Plus Jakarta Sans';
+  static const String monoFontFamily = 'JetBrains Mono';
 
   static ThemeData lightTheme() {
     final baseScheme = ColorScheme.fromSeed(
@@ -68,37 +71,42 @@ class CadenceFlowTheme {
     final baseTextTheme =
         isDark ? ThemeData.dark().textTheme : ThemeData.light().textTheme;
 
-    final bodyTextTheme = GoogleFonts.plusJakartaSansTextTheme(baseTextTheme);
+    final bodyTextTheme = baseTextTheme.apply(
+      fontFamily: bodyFontFamily,
+      bodyColor: colorScheme.onSurface,
+      displayColor: colorScheme.onSurface,
+    );
+
     final textTheme = bodyTextTheme.copyWith(
-      displaySmall: GoogleFonts.outfit(
-        textStyle: bodyTextTheme.displaySmall,
+      displaySmall: bodyTextTheme.displaySmall?.copyWith(
+        fontFamily: headingFontFamily,
         fontWeight: FontWeight.w700,
       ),
-      headlineMedium: GoogleFonts.outfit(
-        textStyle: bodyTextTheme.headlineMedium,
+      headlineMedium: bodyTextTheme.headlineMedium?.copyWith(
+        fontFamily: headingFontFamily,
         fontWeight: FontWeight.w700,
       ),
-      headlineSmall: GoogleFonts.outfit(
-        textStyle: bodyTextTheme.headlineSmall,
+      headlineSmall: bodyTextTheme.headlineSmall?.copyWith(
+        fontFamily: headingFontFamily,
         fontWeight: FontWeight.w700,
       ),
-      titleLarge: GoogleFonts.outfit(
-        textStyle: bodyTextTheme.titleLarge,
+      titleLarge: bodyTextTheme.titleLarge?.copyWith(
+        fontFamily: headingFontFamily,
         fontWeight: FontWeight.w600,
       ),
-      titleMedium: GoogleFonts.outfit(
-        textStyle: bodyTextTheme.titleMedium,
+      titleMedium: bodyTextTheme.titleMedium?.copyWith(
+        fontFamily: headingFontFamily,
         fontWeight: FontWeight.w600,
       ),
-      bodyLarge: GoogleFonts.plusJakartaSans(
-        textStyle: bodyTextTheme.bodyLarge,
+      bodyLarge: bodyTextTheme.bodyLarge?.copyWith(
+        fontFamily: bodyFontFamily,
         fontWeight: FontWeight.w500,
       ),
-      bodyMedium: GoogleFonts.plusJakartaSans(
-        textStyle: bodyTextTheme.bodyMedium,
+      bodyMedium: bodyTextTheme.bodyMedium?.copyWith(
+        fontFamily: bodyFontFamily,
       ),
-      labelLarge: GoogleFonts.plusJakartaSans(
-        textStyle: bodyTextTheme.labelLarge,
+      labelLarge: bodyTextTheme.labelLarge?.copyWith(
+        fontFamily: bodyFontFamily,
         fontWeight: FontWeight.w600,
       ),
     );
@@ -113,7 +121,8 @@ class CadenceFlowTheme {
         foregroundColor: colorScheme.onSurface,
         elevation: 0,
         centerTitle: false,
-        titleTextStyle: GoogleFonts.outfit(
+        titleTextStyle: TextStyle(
+          fontFamily: headingFontFamily,
           fontSize: 21,
           fontWeight: FontWeight.w700,
           color: colorScheme.onSurface,
@@ -133,7 +142,8 @@ class CadenceFlowTheme {
         backgroundColor: cardColor,
         indicatorColor: colorScheme.primary.withValues(alpha: 0.16),
         labelTextStyle: WidgetStateProperty.all(
-          GoogleFonts.plusJakartaSans(
+          const TextStyle(
+            fontFamily: bodyFontFamily,
             fontSize: 12,
             fontWeight: FontWeight.w600,
           ),
@@ -156,7 +166,9 @@ class CadenceFlowTheme {
     FontWeight fontWeight = FontWeight.w600,
     Color? color,
   }) {
-    return GoogleFonts.jetBrainsMono(
+    return TextStyle(
+      fontFamily: monoFontFamily,
+      fontFamilyFallback: const ['monospace'],
       fontSize: fontSize,
       fontWeight: fontWeight,
       color: color ?? Theme.of(context).colorScheme.onSurfaceVariant,

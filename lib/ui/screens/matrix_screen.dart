@@ -216,7 +216,7 @@ class MatrixScreen extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= 680;
-        final quadrants = EisenhowerQuadrant.values;
+        const quadrants = EisenhowerQuadrant.values;
 
         if (isWide) {
           return Column(

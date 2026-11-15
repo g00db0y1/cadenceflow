@@ -1,4 +1,4 @@
-package com.cadenceflow.app
+package com.cadenceflow.cadenceflow
 
 import io.flutter.embedding.android.FlutterActivity
 

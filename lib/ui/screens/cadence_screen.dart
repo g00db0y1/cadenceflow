@@ -61,7 +61,7 @@ class CadenceScreen extends StatelessWidget {
             children: [
               Icon(
                 selectedHorizon.isIntervalBased
-                    ? Icons.Autorenew_rounded
+                    ? Icons.autorenew_rounded
                     : Icons.event_repeat_rounded,
                 color: scheme.primary,
               ),
