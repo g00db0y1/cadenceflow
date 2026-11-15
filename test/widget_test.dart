@@ -12,6 +12,14 @@ void main() {
   testWidgets(
       'CadenceFlowApp renders ClerkAuthGate, signs in, and navigates Matrix, Cadences & Alerts tabs',
       (WidgetTester tester) async {
+    // Emulate an itel Power 70 tall mobile viewport (540 x 1200 logical px)
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
     SharedPreferences.setMockInitialValues(<String, Object>{});
 
     final authService = ClerkAuthService();
@@ -37,10 +45,12 @@ void main() {
     expect(find.text('CadenceFlow'), findsOneWidget);
     expect(find.text('Sign in with Clerk'), findsOneWidget);
 
-    // 2. Tap "Start Immediately in Local Offline Workspace"
-    await tester.tap(
-      find.text('Start Immediately in Local Offline Workspace'),
-    );
+    // 2. Scroll to and tap "Start Immediately in Local Offline Workspace"
+    final offlineButton =
+        find.text('Start Immediately in Local Offline Workspace');
+    await tester.ensureVisible(offlineButton);
+    await tester.pumpAndSettle();
+    await tester.tap(offlineButton);
     await tester.pumpAndSettle();
 
     // 3. Verify Today & Eisenhower Matrix screen is active
@@ -48,12 +58,16 @@ void main() {
     expect(find.text('Q1 • Do First'), findsWidgets);
 
     // 4. Switch to Cadences tab
-    await tester.tap(find.byIcon(Icons.repeat_outlined).first);
+    final cadencesTab = find.text('Cadences').first;
+    await tester.ensureVisible(cadencesTab);
+    await tester.tap(cadencesTab);
     await tester.pumpAndSettle();
     expect(find.textContaining('Daily Horizon'), findsOneWidget);
 
     // 5. Switch to Alerts tab
-    await tester.tap(find.text('Alerts').first);
+    final alertsTab = find.text('Alerts').first;
+    await tester.ensureVisible(alertsTab);
+    await tester.tap(alertsTab);
     await tester.pumpAndSettle();
     expect(find.textContaining('Attention Feed'), findsOneWidget);
   });
