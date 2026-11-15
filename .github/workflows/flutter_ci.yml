@@ -1,0 +1,54 @@
+name: CadenceFlow Flutter CI & APK Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  analyze-test-and-build:
+    name: Analyze, Test & Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Bootstrap missing platform scaffolding (if any) & get packages
+        run: |
+          flutter create --platforms=android,web --org com.cadenceflow .
+          git checkout -- android/app/src/main/AndroidManifest.xml lib/ test/ pubspec.yaml
+          flutter pub get
+
+      - name: Verify static analysis
+        run: flutter analyze --no-fatal-infos
+
+      - name: Run unit & widget tests
+        run: flutter test
+
+      - name: Build Debug APK for itel Power 70 / Android testing
+        run: |
+          flutter build apk --debug \
+            --dart-define=CLERK_PUBLISHABLE_KEY=${{ secrets.CLERK_PUBLISHABLE_KEY || 'pk_test_PLACEHOLDER' }} \
+            --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL || 'https://placeholder.supabase.co' }} \
+            --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY || 'placeholder_anon_key' }}
+
+      - name: Upload Android APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cadenceflow-android-debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
