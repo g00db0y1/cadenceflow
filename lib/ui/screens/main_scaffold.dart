@@ -4,6 +4,7 @@ import '../../services/clerk_auth_service.dart';
 import '../../state/productivity_controller.dart';
 import '../../theme/app_theme.dart';
 import '../widgets/account_preferences_sheet.dart';
+import '../widgets/brand_icon.dart';
 import '../widgets/task_composer_sheet.dart';
 import 'alerts_screen.dart';
 import 'cadence_screen.dart';
@@ -54,24 +55,12 @@ class _MainScaffoldState extends State<MainScaffold> {
 
             return Scaffold(
               appBar: AppBar(
-                title: Row(
+                title: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: scheme.primary,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        Icons.bolt_rounded,
-                        color: scheme.onPrimary,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    const Flexible(
+                    CadenceFlowBrandIcon(size: 34, borderRadius: 10),
+                    SizedBox(width: 10),
+                    Flexible(
                       child: Text(
                         'CadenceFlow',
                         overflow: TextOverflow.ellipsis,

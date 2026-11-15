@@ -4,13 +4,14 @@ import 'package:cadenceflow/main.dart';
 import 'package:cadenceflow/services/clerk_auth_service.dart';
 import 'package:cadenceflow/services/reminder_scheduler.dart';
 import 'package:cadenceflow/state/productivity_controller.dart';
+import 'package:cadenceflow/ui/widgets/brand_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   testWidgets(
-      'CadenceFlowApp renders ClerkAuthGate, signs in, and navigates Matrix, Cadences & Alerts tabs',
+      'CadenceFlowApp renders ClerkAuthGate with brand icon, signs in, and navigates Matrix, Cadences & Alerts tabs',
       (WidgetTester tester) async {
     // Emulate an itel Power 70 tall mobile viewport (540 x 1200 logical px)
     tester.view.physicalSize = const Size(1080, 2400);
@@ -41,8 +42,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // 1. Verify ClerkAuthGate welcome screen renders
+    // 1. Verify ClerkAuthGate welcome screen & custom CadenceFlowBrandIcon render
     expect(find.text('CadenceFlow'), findsOneWidget);
+    expect(find.byType(CadenceFlowBrandIcon), findsOneWidget);
     expect(find.text('Sign in with Clerk'), findsOneWidget);
 
     // 2. Scroll to and tap "Start Immediately in Local Offline Workspace"
@@ -53,7 +55,8 @@ void main() {
     await tester.tap(offlineButton);
     await tester.pumpAndSettle();
 
-    // 3. Verify Today & Eisenhower Matrix screen is active
+    // 3. Verify Today & Eisenhower Matrix screen + Top AppBar Brand Icon are active
+    expect(find.byType(CadenceFlowBrandIcon), findsOneWidget);
     expect(find.text('Today\'s Execution Pulse'), findsOneWidget);
     expect(find.text('Q1 • Do First'), findsWidgets);
 

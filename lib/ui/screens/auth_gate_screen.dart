@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../config/app_config.dart';
 import '../../services/clerk_auth_service.dart';
 import '../../theme/app_theme.dart';
+import '../widgets/brand_icon.dart';
 
 /// Branded Clerk Authentication Gate offering:
 /// 1. 1-Tap Google Sign-In (Clerk OAuth)
@@ -47,36 +48,13 @@ class _ClerkAuthGateScreenState extends State<ClerkAuthGateScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // Brand Logo & Tagline
-                  Row(
+                  const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [
-                              CadenceFlowTheme.primaryTealLight,
-                              CadenceFlowTheme.primaryTealDark,
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: CadenceFlowTheme.primaryTealLight
-                                  .withValues(alpha: 0.28),
-                              blurRadius: 16,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.bolt_rounded,
-                          color: Colors.white,
-                          size: 32,
-                        ),
+                      CadenceFlowBrandIcon(
+                        size: 68,
+                        borderRadius: 18,
+                        showGlow: true,
                       ),
                     ],
                   ),
