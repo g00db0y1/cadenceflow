@@ -29,8 +29,11 @@ void main() {
       await auth.initialize();
       expect(auth.applicationId, 'app_3MCWyxqnF0GnpRlYDILJgqs2pZ4');
       await auth.configurePublishableKey(samplePk);
-      expect(auth.publishableKey, samplePk);
-      expect(auth.frontendApiUrl, 'https://cadenceflow-dev.clerk.accounts.dev');
+      expect(auth.activePublishableKey, samplePk);
+      expect(
+        auth.activeFrontendApi,
+        'https://cadenceflow-dev.clerk.accounts.dev',
+      );
       expect(auth.isLiveClerkConfigured, isTrue);
     });
 
