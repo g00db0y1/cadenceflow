@@ -445,9 +445,11 @@ class CalendarScreen extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        DateFormat('EEEE, MMM d').format(day),
-                        style: Theme.of(context).textTheme.titleSmall,
+                      Expanded(
+                        child: Text(
+                          DateFormat('EEEE, MMM d').format(day),
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
                       ),
                       Text(
                         '$total item${total == 1 ? '' : 's'}',
@@ -836,9 +838,11 @@ class _TimeBlockCard extends StatelessWidget {
             children: [
               Icon(icon, size: 18, color: scheme.primary),
               const SizedBox(width: 8),
-              Text(
-                title,
-                style: Theme.of(context).textTheme.titleSmall,
+              Expanded(
+                child: Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
               ),
             ],
           ),
