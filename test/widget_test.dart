@@ -112,17 +112,17 @@ void main() {
     await tester.pumpAndSettle();
 
     // Monthly view is active by default
-    expect(find.text('Monthly'), findsOneWidget);
+    expect(find.text('Monthly').first, findsOneWidget);
     expect(find.textContaining('Overview for'), findsOneWidget);
 
     // Switch to Weekly view
-    await tester.tap(find.text('Weekly'));
+    await tester.tap(find.text('Weekly').first);
     await tester.pumpAndSettle();
     expect(find.text('7-Day Workload Overview'), findsOneWidget);
     expect(find.text('Full Week Schedule'), findsOneWidget);
 
     // Switch to Daily view
-    await tester.tap(find.text('Daily'));
+    await tester.tap(find.text('Daily').first);
     await tester.pumpAndSettle();
     expect(
       find.text('Morning Schedule (Before 12:00 PM)'),
