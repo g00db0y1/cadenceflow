@@ -5,22 +5,17 @@ import '../models/cadence_goal.dart';
 import '../models/enums.dart';
 import '../models/task_item.dart';
 
-/// Offline-first on-device storage mirror that persists Tasks, Cadence Goals,
-/// Appointments, and active alarm metadata locally.
-///
-/// Why this exists (Decision A3):
-/// On budget/battery-aggressive Android devices like the **itel Power 70**,
-/// `BOOT_COMPLETED` receivers and background notification shade actions
-/// (`Done` / `Snooze 10m` / `Acknowledge`) often execute while the device has
-/// no active network connection. By mirroring state locally on-device,
-/// background isolates can read and update alarm & task state in <5ms offline
-/// and queue deltas for Supabase PostgreSQL sync.
+/// On-device storage mirror that saves Tasks, Routines, Appointments,
+/// and first-startup setup preferences locally on the phone.
 class LocalStorageMirror {
   static const String _tasksKeyPrefix = 'cf_tasks_v1_';
   static const String _cadencesKeyPrefix = 'cf_cadences_v1_';
   static const String _appointmentsKeyPrefix = 'cf_appointments_v1_';
   static const String _seededKeyPrefix = 'cf_seeded_v1_';
+  static const String _onboardingKeyPrefix = 'cf_onboarding_done_v1_';
   static const String _repingMinutesKey = 'cf_default_reping_minutes_v1';
+  static const String _aggressiveModeKey = 'cf_aggressive_alerts_enabled_v1';
+  static const String _dailyStartHourKey = 'cf_daily_start_hour_v1';
   static const String _activeUserIdKey = 'cf_active_user_id_v1';
 
   Future<void> setActiveUserId(String userId) async {
@@ -35,12 +30,42 @@ class LocalStorageMirror {
 
   Future<int> getDefaultRepingMinutes() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt(_repingMinutesKey) ?? 10;
+    return prefs.getInt(_repingMinutesKey) ?? 5;
   }
 
   Future<void> setDefaultRepingMinutes(int minutes) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_repingMinutesKey, minutes);
+  }
+
+  Future<bool> getAggressiveModeEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_aggressiveModeKey) ?? true;
+  }
+
+  Future<void> setAggressiveModeEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_aggressiveModeKey, enabled);
+  }
+
+  Future<int> getDailyStartHour() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_dailyStartHourKey) ?? 8;
+  }
+
+  Future<void> setDailyStartHour(int hour) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_dailyStartHourKey, hour);
+  }
+
+  Future<bool> isOnboardingCompleted(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('$_onboardingKeyPrefix$userId') ?? false;
+  }
+
+  Future<void> setOnboardingCompleted(String userId, bool completed) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('$_onboardingKeyPrefix$userId', completed);
   }
 
   Future<List<TaskItem>> loadTasks(String userId) async {
@@ -100,9 +125,7 @@ class LocalStorageMirror {
     await prefs.setString('$_appointmentsKeyPrefix$userId', encoded);
   }
 
-  /// Populates realistic starter data on a user's first session so all 4
-  /// Eisenhower quadrants, all 5 Cadence horizons, and the Social-Style
-  /// Attention Feed are immediately interactive.
+  /// Populates friendly, relatable starter items on a user's first session.
   Future<void> _ensureSeededIfFirstRun(
     SharedPreferences prefs,
     String userId,
@@ -119,8 +142,8 @@ class LocalStorageMirror {
       TaskItem(
         id: 'task_q1_1',
         userId: userId,
-        title: 'Finalize client sprint deliverables & send invoice',
-        notes: 'High-impact priority before 5:00 PM cutoff',
+        title: 'Send project proposal and invoice to client',
+        notes: 'Double-check the final numbers before 5:00 PM',
         quadrant: EisenhowerQuadrant.doFirst,
         isCompleted: false,
         dueAtMillis: nowMs + (3 * hourMs),
@@ -132,8 +155,8 @@ class LocalStorageMirror {
       TaskItem(
         id: 'task_q1_2',
         userId: userId,
-        title: 'Review Supabase RLS policy audit & Clerk JWKS status',
-        notes: 'Verify zero-trust user_id check on all 3 tables',
+        title: 'Share morning update with the team',
+        notes: 'Quick summary of what is done and what is next',
         quadrant: EisenhowerQuadrant.doFirst,
         isCompleted: true,
         dueAtMillis: nowMs - hourMs,
@@ -143,8 +166,8 @@ class LocalStorageMirror {
       TaskItem(
         id: 'task_q2_1',
         userId: userId,
-        title: 'Architect Q4 product roadmap & deep-work milestones',
-        notes: 'Block 90m uninterrupted morning session',
+        title: 'Outline goals and priorities for next week',
+        notes: 'Set aside 45 minutes of quiet time tomorrow morning',
         quadrant: EisenhowerQuadrant.schedule,
         isCompleted: false,
         dueAtMillis: nowMs + dayMs,
@@ -154,8 +177,8 @@ class LocalStorageMirror {
       TaskItem(
         id: 'task_q3_1',
         userId: userId,
-        title: 'Reply to courier delivery confirmation SMS',
-        notes: '2-minute quick turnaround',
+        title: 'Reply to package delivery text message',
+        notes: 'Confirm front-desk drop-off',
         quadrant: EisenhowerQuadrant.quickHandle,
         isCompleted: false,
         dueAtMillis: nowMs + (4 * hourMs),
@@ -165,10 +188,11 @@ class LocalStorageMirror {
       TaskItem(
         id: 'task_q4_1',
         userId: userId,
-        title: 'Reorganize archived reference bookmarks folder',
-        notes: 'Low urgency — defer to weekend cleanup',
+        title: 'Clean up saved reading links and bookmarks',
+        notes: 'Nice to do over the weekend when free',
         quadrant: EisenhowerQuadrant.defer,
         isCompleted: false,
+        dueAtMillis: nowMs + (3 * dayMs),
         createdAt: now,
         updatedAt: now,
       ),
@@ -178,8 +202,8 @@ class LocalStorageMirror {
       CadenceGoal(
         id: 'cad_daily_1',
         userId: userId,
-        title: 'Morning Top-3 Eisenhower Triage & Hydration',
-        notes: 'Lock Q1 priorities before opening messages',
+        title: 'Morning plan & a full glass of water',
+        notes: 'Pick your top 3 priorities before checking messages',
         cadence: CadenceType.daily,
         quadrant: EisenhowerQuadrant.doFirst,
         nextDueAtMillis: DateTime(now.year, now.month, now.day, 9, 0)
@@ -194,8 +218,8 @@ class LocalStorageMirror {
       CadenceGoal(
         id: 'cad_bidaily_1',
         userId: userId,
-        title: '45m Mobility & Strength Conditioning Session',
-        notes: 'Every 2 days — interval rollover from completion date',
+        title: '45-minute workout & stretching session',
+        notes: 'Stay active every two days',
         cadence: CadenceType.biDaily,
         quadrant: EisenhowerQuadrant.schedule,
         nextDueAtMillis: DateTime(now.year, now.month, now.day, 18, 0)
@@ -210,8 +234,8 @@ class LocalStorageMirror {
       CadenceGoal(
         id: 'cad_weekly_1',
         userId: userId,
-        title: 'Weekly Sprint Retrospective & Inbox Zero Reset',
-        notes: 'Preserves weekly calendar weekday anchor',
+        title: 'Weekly review & tidy up workspace',
+        notes: 'Clear your desk and plan the week ahead',
         cadence: CadenceType.weekly,
         quadrant: EisenhowerQuadrant.schedule,
         nextDueAtMillis: nowMs + (2 * dayMs),
@@ -225,8 +249,8 @@ class LocalStorageMirror {
       CadenceGoal(
         id: 'cad_biweekly_1',
         userId: userId,
-        title: 'Bi-Weekly Personal Finance & Expense Reconciliation',
-        notes: 'Review cashflow, savings rate, and recurring subscriptions',
+        title: 'Check personal budget & upcoming bills',
+        notes: 'Review spending and savings every two weeks',
         cadence: CadenceType.biWeekly,
         quadrant: EisenhowerQuadrant.schedule,
         nextDueAtMillis: nowMs + (6 * dayMs),
@@ -240,8 +264,8 @@ class LocalStorageMirror {
       CadenceGoal(
         id: 'cad_monthly_1',
         userId: userId,
-        title: 'Monthly Cloud Backup & Security Credential Audit',
-        notes: 'Preserves day-of-month anchor across 28–31 day months',
+        title: 'Back up photos & review subscriptions',
+        notes: 'Once-a-month digital checkup',
         cadence: CadenceType.monthly,
         quadrant: EisenhowerQuadrant.doFirst,
         nextDueAtMillis: nowMs + (12 * dayMs),
@@ -258,9 +282,9 @@ class LocalStorageMirror {
       Appointment(
         id: 'appt_urgent_1',
         userId: userId,
-        title: 'Product Design Sync with Mobile Engineering Lead',
-        locationOrLink: 'Google Meet • meet.google.com/cad-flow-sync',
-        notes: 'Review persistent notification escalation on itel Power 70',
+        title: 'Catch-up call with Product & Design team',
+        locationOrLink: 'Video Call • meet.google.com/team-sync',
+        notes: 'Walk through this week\'s launch checklist',
         startsAtMillis: nowMs + (15 * 60 * 1000),
         leadMinutes: 15,
         isPersistentAlert: true,
@@ -272,9 +296,9 @@ class LocalStorageMirror {
       Appointment(
         id: 'appt_upcoming_2',
         userId: userId,
-        title: 'Dental Checkup & Cleaning — City Medical Center',
-        locationOrLink: 'Suite 4B, Westlands Avenue',
-        notes: 'Bring insurance card; 30m lead alert enabled',
+        title: 'Dental checkup & cleaning at City Clinic',
+        locationOrLink: 'Suite 4B, Main Street',
+        notes: 'Arrive 10 minutes early with insurance card',
         startsAtMillis: nowMs + (4 * hourMs),
         leadMinutes: 30,
         isPersistentAlert: true,

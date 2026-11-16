@@ -5,11 +5,8 @@ import '../../models/enums.dart';
 import '../../state/productivity_controller.dart';
 import '../../theme/app_theme.dart';
 
-/// Alerts Tab: Appointments Timeline & Social-Media-Style Persistent Attention Feed.
-/// - Includes a non-blocking **Notification & Exact Alarm Readiness Banner**
-///   for Android 13+ (`POST_NOTIFICATIONS` & `SCHEDULE_EXACT_ALARM`).
-/// - Displays an urgent **Social-Style Attention Feed** with inline
-///   **Acknowledge (`Got It`)**, **Snooze 10m**, and **Complete** buttons.
+/// Reminders Tab: Active Insistent Reminders & Upcoming Appointments
+/// with solid, tactile cards and human-friendly wording.
 class AlertsScreen extends StatelessWidget {
   const AlertsScreen({
     super.key,
@@ -27,11 +24,11 @@ class AlertsScreen extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
       children: [
-        // 1. Android 13+ Notification & Exact Alarm Readiness Banner
+        // 1. Solid Insistent Reminder Status & Test Card
         _buildReadinessBanner(context, scheme),
-        const SizedBox(height: 16),
+        const SizedBox(height: 18),
 
-        // 2. Social-Media-Style Attention Feed (Unacknowledged / Pinging Alerts)
+        // 2. Active Reminders (Ringing / Unanswered Alerts)
         Row(
           children: [
             const Icon(
@@ -41,15 +38,22 @@ class AlertsScreen extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Attention Feed (${attentionFeed.length} Active)',
+                'Active Reminders (${attentionFeed.length})',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
             ),
+            if (attentionFeed.isNotEmpty)
+              TextButton.icon(
+                onPressed: () =>
+                    controller.reminderScheduler.simulateEscalationTick(),
+                icon: const Icon(Icons.notifications_active_rounded, size: 16),
+                label: const Text('Nudge Again'),
+              ),
           ],
         ),
         const SizedBox(height: 4),
         Text(
-          'Social-style persistent reminders that re-ping every ${controller.defaultRepingMinutes}m until you tap Got It, Snooze, or Done.',
+          'Important alerts repeat every ${controller.defaultRepingMinutes} minutes until you tap Got It, Snooze, or Mark Done.',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
               ),
@@ -57,30 +61,29 @@ class AlertsScreen extends StatelessWidget {
         const SizedBox(height: 12),
 
         if (attentionFeed.isEmpty)
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.verified_rounded,
-                    color: scheme.primary,
-                    size: 28,
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: CadenceFlowTheme.solidCardDecoration(context),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.verified_rounded,
+                  color: scheme.primary,
+                  size: 28,
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'All caught up! No unanswered reminders are ringing right now.',
                   ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      'All caught up! No unacknowledged persistent pings right now.',
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           )
         else
           ...attentionFeed.map(
             (appt) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.only(bottom: 14),
               child: _SocialAttentionCard(
                 appointment: appt,
                 controller: controller,
@@ -88,20 +91,21 @@ class AlertsScreen extends StatelessWidget {
             ),
           ),
 
-        const SizedBox(height: 20),
+        const SizedBox(height: 22),
 
-        // 3. Chronological Appointments Timeline
+        // 3. Upcoming Appointments Timeline
         Text(
-          'Upcoming & Scheduled Appointments (${allAppointments.length})',
+          'Upcoming Appointments (${allAppointments.length})',
           style: Theme.of(context).textTheme.titleLarge,
         ),
         const SizedBox(height: 10),
 
         if (allAppointments.isEmpty)
-          const Card(
-            child: Padding(
-              padding: EdgeInsets.all(24),
-              child: Text('No appointments scheduled yet. Tap + to add one.'),
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: CadenceFlowTheme.solidCardDecoration(context),
+            child: const Text(
+              'No appointments scheduled yet. Tap "Add Reminder" below to add one.',
             ),
           )
         else
@@ -119,55 +123,103 @@ class AlertsScreen extends StatelessWidget {
   }
 
   Widget _buildReadinessBanner(BuildContext context, ColorScheme scheme) {
+    final activeSessions = controller.reminderScheduler.activeEscalationCount;
+    final totalPings = controller.reminderScheduler.totalPingsDispatched;
+
     return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: scheme.secondaryContainer.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: scheme.secondary.withValues(alpha: 0.35),
-        ),
-      ),
-      child: Row(
+      padding: const EdgeInsets.all(16),
+      decoration: CadenceFlowTheme.heroBannerDecoration(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.alarm_on_rounded,
-            color: scheme.secondary,
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.alarm_on_rounded,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      controller.aggressiveModeEnabled
+                          ? 'Insistent Reminders Are On'
+                          : 'Standard Reminders Are On',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: Colors.white,
+                          ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$activeSessions ringing now • $totalPings alert${totalPings == 1 ? '' : 's'} sent this session',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.white.withValues(alpha: 0.88),
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Persistent Alarm Readiness (itel Power 70 & Android 13+)',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton.icon(
+                onPressed: () async {
+                  await controller.triggerTestAggressiveAlert();
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).clearSnackBars();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Insistent reminder triggered! Check your active alerts below.',
                       ),
+                    ),
+                  );
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: CadenceFlowTheme.accentAmberDark,
+                  foregroundColor: Colors.black,
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  'Offline alarm mirror active. Grant notification & exact alarm permissions so heads-up escalation banners never get silenced.',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          TextButton(
-            onPressed: () async {
-              await controller.reminderScheduler.requestPermissions();
-              await controller.reminderScheduler.requestExactAlarmPermission();
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    'Verified POST_NOTIFICATIONS & SCHEDULE_EXACT_ALARM readiness.',
+                icon: const Icon(Icons.notifications_active_rounded, size: 17),
+                label: const Text('Test Reminder Now'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  await controller.reminderScheduler.requestPermissions();
+                  await controller.reminderScheduler
+                      .requestExactAlarmPermission();
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Notification and alarm permissions are ready.',
+                      ),
+                    ),
+                  );
+                },
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: Colors.white.withValues(alpha: 0.14),
+                  foregroundColor: Colors.white,
+                  side: BorderSide(
+                    color: Colors.white.withValues(alpha: 0.45),
                   ),
                 ),
-              );
-            },
-            child: const Text('Verify'),
+                icon: const Icon(Icons.verified_outlined, size: 17),
+                label: const Text('Check Permissions'),
+              ),
+            ],
           ),
         ],
       ),
@@ -188,102 +240,101 @@ class _SocialAttentionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final startsFormatted =
         DateFormat('EEE, MMM d • h:mm a').format(appointment.startsAtDateTime);
+    final session = controller.reminderScheduler
+        .sessionFor('appointment', appointment.id);
+    final pingCount = session?.pingCount ?? 1;
 
-    return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: const BorderSide(
-          color: CadenceFlowTheme.q1CoralRed,
-          width: 1.5,
-        ),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: CadenceFlowTheme.solidCardDecoration(
+        context,
+        accentColor: CadenceFlowTheme.q1CoralRed,
+        highlighted: true,
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const CircleAvatar(
-                  radius: 16,
-                  backgroundColor: CadenceFlowTheme.q1CoralRed,
-                  child: Icon(
-                    Icons.notifications_active_rounded,
-                    color: Colors.white,
-                    size: 18,
-                  ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const CircleAvatar(
+                radius: 18,
+                backgroundColor: CadenceFlowTheme.q1CoralRed,
+                child: Icon(
+                  Icons.notifications_active_rounded,
+                  color: Colors.white,
+                  size: 19,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${appointment.alertStatus.label.toUpperCase()} • RE-PINGS EVERY ${appointment.repingIntervalMinutes}M',
-                        style: CadenceFlowTheme.monoStyle(
-                          context,
-                          fontSize: 11,
-                          color: CadenceFlowTheme.q1CoralRed,
-                        ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${appointment.alertStatus.label.toUpperCase()} • ALERT #$pingCount • EVERY ${appointment.repingIntervalMinutes}M',
+                      style: CadenceFlowTheme.monoStyle(
+                        context,
+                        fontSize: 11,
+                        color: CadenceFlowTheme.q1CoralRed,
                       ),
-                      Text(
-                        startsFormatted,
-                        style: CadenceFlowTheme.monoStyle(
-                          context,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              appointment.title,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            if (appointment.locationOrLink.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  const Icon(Icons.place_outlined, size: 15),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      appointment.locationOrLink,
-                      style: Theme.of(context).textTheme.bodySmall,
                     ),
-                  ),
-                ],
+                    Text(
+                      startsFormatted,
+                      style: CadenceFlowTheme.monoStyle(
+                        context,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            appointment.title,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          if (appointment.locationOrLink.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Row(
               children: [
-                FilledButton.icon(
-                  onPressed: () =>
-                      controller.acknowledgeAppointment(appointment),
-                  icon: const Icon(Icons.thumb_up_alt_rounded, size: 16),
-                  label: const Text('Got It (Ack)'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: () =>
-                      controller.snoozeAppointment(appointment, minutes: 10),
-                  icon: const Icon(Icons.snooze_rounded, size: 16),
-                  label: const Text('Snooze 10m'),
-                ),
-                TextButton.icon(
-                  onPressed: () => controller.completeAppointment(appointment),
-                  icon: const Icon(Icons.check_rounded, size: 16),
-                  label: const Text('Done'),
+                const Icon(Icons.place_outlined, size: 15),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    appointment.locationOrLink,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                 ),
               ],
             ),
           ],
-        ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton.icon(
+                onPressed: () =>
+                    controller.acknowledgeAppointment(appointment),
+                icon: const Icon(Icons.thumb_up_alt_rounded, size: 16),
+                label: const Text('Got It'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () =>
+                    controller.snoozeAppointment(appointment, minutes: 10),
+                icon: const Icon(Icons.snooze_rounded, size: 16),
+                label: const Text('Snooze 10m'),
+              ),
+              FilledButton.tonalIcon(
+                onPressed: () => controller.completeAppointment(appointment),
+                icon: const Icon(Icons.check_rounded, size: 16),
+                label: const Text('Mark Done'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -304,7 +355,11 @@ class _AppointmentTimelineTile extends StatelessWidget {
     final startsFormatted =
         DateFormat('MMM d, h:mm a').format(appointment.startsAtDateTime);
 
-    return Card(
+    return Container(
+      decoration: CadenceFlowTheme.solidCardDecoration(
+        context,
+        accentColor: scheme.primary,
+      ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         leading: CircleAvatar(
@@ -324,7 +379,7 @@ class _AppointmentTimelineTile extends StatelessWidget {
           children: [
             const SizedBox(height: 2),
             Text(
-              '$startsFormatted • ${appointment.leadMinutes}m lead • ${appointment.alertStatus.label}',
+              '$startsFormatted • ${appointment.leadMinutes}m early notice • ${appointment.alertStatus.label}',
               style: CadenceFlowTheme.monoStyle(context, fontSize: 11),
             ),
             if (appointment.locationOrLink.isNotEmpty)
@@ -347,11 +402,11 @@ class _AppointmentTimelineTile extends StatelessWidget {
           itemBuilder: (context) => const [
             PopupMenuItem(
               value: 'PING',
-              child: Text('Trigger Escalation Ping Now'),
+              child: Text('Ring Reminder Now'),
             ),
             PopupMenuItem(
               value: 'DONE',
-              child: Text('Mark Completed'),
+              child: Text('Mark Done'),
             ),
             PopupMenuDivider(),
             PopupMenuItem(

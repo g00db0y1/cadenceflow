@@ -1,20 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../models/enums.dart';
 import '../../state/productivity_controller.dart';
 
 enum ComposerItemType { task, cadenceGoal, appointment }
 
-/// Quick-capture bottom sheet (`+` FAB) to create an Eisenhower **Task**,
-/// a 5-tier **Cadence Goal**, or a persistent **Appointment** reminder.
+/// Quick-add bottom sheet (`+` button) to add a Task, a Recurring Routine,
+/// or an Appointment with human-friendly labels and optional date selection.
 class TaskComposerSheet extends StatefulWidget {
   const TaskComposerSheet({
     super.key,
     required this.controller,
     this.initialType = ComposerItemType.task,
+    this.initialDate,
   });
 
   final ProductivityController controller;
   final ComposerItemType initialType;
+  final DateTime? initialDate;
 
   @override
   State<TaskComposerSheet> createState() => _TaskComposerSheetState();
@@ -22,6 +25,7 @@ class TaskComposerSheet extends StatefulWidget {
 
 class _TaskComposerSheetState extends State<TaskComposerSheet> {
   late ComposerItemType _selectedType;
+  late DateTime _selectedDate;
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
@@ -36,6 +40,7 @@ class _TaskComposerSheetState extends State<TaskComposerSheet> {
   void initState() {
     super.initState();
     _selectedType = widget.initialType;
+    _selectedDate = widget.initialDate ?? DateTime.now();
   }
 
   @override
@@ -63,7 +68,7 @@ class _TaskComposerSheetState extends State<TaskComposerSheet> {
               children: [
                 Expanded(
                   child: Text(
-                    'Quick Capture',
+                    'Add to Your Schedule',
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                 ),
@@ -75,22 +80,22 @@ class _TaskComposerSheetState extends State<TaskComposerSheet> {
             ),
             const SizedBox(height: 12),
 
-            // Entity Type Segmented Selector
+            // Item Type Selector
             SegmentedButton<ComposerItemType>(
               segments: const [
                 ButtonSegment(
                   value: ComposerItemType.task,
-                  icon: Icon(Icons.grid_view_rounded, size: 16),
+                  icon: Icon(Icons.check_circle_outline_rounded, size: 16),
                   label: Text('Task'),
                 ),
                 ButtonSegment(
                   value: ComposerItemType.cadenceGoal,
                   icon: Icon(Icons.repeat_rounded, size: 16),
-                  label: Text('Cadence'),
+                  label: Text('Routine'),
                 ),
                 ButtonSegment(
                   value: ComposerItemType.appointment,
-                  icon: Icon(Icons.notifications_active_rounded, size: 16),
+                  icon: Icon(Icons.event_available_rounded, size: 16),
                   label: Text('Appointment'),
                 ),
               ],
@@ -110,10 +115,10 @@ class _TaskComposerSheetState extends State<TaskComposerSheet> {
               autofocus: true,
               decoration: InputDecoration(
                 labelText: _selectedType == ComposerItemType.appointment
-                    ? 'Appointment Title *'
+                    ? 'What is the appointment? *'
                     : _selectedType == ComposerItemType.cadenceGoal
-                        ? 'Recurring Cadence Goal Title *'
-                        : 'Task Title *',
+                        ? 'What habit or routine? *'
+                        : 'What needs to get done? *',
                 errorText: _validationError,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -122,13 +127,34 @@ class _TaskComposerSheetState extends State<TaskComposerSheet> {
             ),
             const SizedBox(height: 12),
 
+            // Date Picker Row
+            Row(
+              children: [
+                const Icon(Icons.calendar_today_rounded, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Scheduled Date: ${DateFormat('EEE, MMM d, yyyy').format(_selectedDate)}',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _pickDate,
+                  child: const Text('Change Date'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
             // Location / Link for Appointments
             if (_selectedType == ComposerItemType.appointment) ...[
               TextField(
                 controller: _locationController,
                 decoration: InputDecoration(
-                  labelText: 'Location or Meeting Link',
-                  hintText: 'Room 302 or meet.google.com/...',
+                  labelText: 'Place or Call Link',
+                  hintText: 'Room 302 or video call link',
                   prefixIcon: const Icon(Icons.place_outlined),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -143,7 +169,7 @@ class _TaskComposerSheetState extends State<TaskComposerSheet> {
               controller: _notesController,
               maxLines: 2,
               decoration: InputDecoration(
-                labelText: 'Notes / Action Context (Optional)',
+                labelText: 'Helpful Notes (Optional)',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -151,10 +177,10 @@ class _TaskComposerSheetState extends State<TaskComposerSheet> {
             ),
             const SizedBox(height: 14),
 
-            // Quadrant Selector for Tasks & Cadence Goals
+            // Priority Group Selector for Tasks & Routines
             if (_selectedType != ComposerItemType.appointment) ...[
               Text(
-                'Eisenhower Quadrant',
+                'How Urgent Is This?',
                 style: Theme.of(context).textTheme.labelLarge,
               ),
               const SizedBox(height: 8),
@@ -165,7 +191,7 @@ class _TaskComposerSheetState extends State<TaskComposerSheet> {
                   final selected = _quadrant == q;
                   return ChoiceChip(
                     avatar: CircleAvatar(backgroundColor: q.color, radius: 6),
-                    label: Text(q.shortTag),
+                    label: Text(q.title),
                     selected: selected,
                     onSelected: (_) => setState(() => _quadrant = q),
                   );
@@ -174,10 +200,10 @@ class _TaskComposerSheetState extends State<TaskComposerSheet> {
               const SizedBox(height: 14),
             ],
 
-            // Cadence Horizon Selector for Cadence Goals
+            // Frequency Selector for Routines
             if (_selectedType == ComposerItemType.cadenceGoal) ...[
               Text(
-                'Cadence Horizon (5-Tier Engine)',
+                'How Often Should It Repeat?',
                 style: Theme.of(context).textTheme.labelLarge,
               ),
               const SizedBox(height: 8),
@@ -186,7 +212,7 @@ class _TaskComposerSheetState extends State<TaskComposerSheet> {
                 runSpacing: 8,
                 children: CadenceType.values.map((c) {
                   return ChoiceChip(
-                    label: Text('${c.label} (${c.frequencyBadge})'),
+                    label: Text(c.label),
                     selected: _cadence == c,
                     onSelected: (_) => setState(() => _cadence = c),
                   );
@@ -198,14 +224,14 @@ class _TaskComposerSheetState extends State<TaskComposerSheet> {
             // Lead Time Selector for Appointments
             if (_selectedType == ComposerItemType.appointment) ...[
               Text(
-                'Reminder Lead Time Before Start',
+                'Remind Me Before It Starts',
                 style: Theme.of(context).textTheme.labelLarge,
               ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 children: [15, 30, 60, 1440].map((mins) {
-                  final label = mins == 1440 ? '24 Hours' : '$mins Mins';
+                  final label = mins == 1440 ? '1 Day Early' : '$mins Mins Early';
                   return ChoiceChip(
                     label: Text(label),
                     selected: _leadMinutes == mins,
@@ -216,12 +242,12 @@ class _TaskComposerSheetState extends State<TaskComposerSheet> {
               const SizedBox(height: 12),
             ],
 
-            // Social-Media-Style Persistent Alert Toggle
+            // Insistent Reminder Toggle
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Social-Style Persistent Escalation Alert'),
+              title: const Text('Keep Nudging Until I Answer'),
               subtitle: Text(
-                'High-priority heads-up banner + repeating re-ping until acknowledged',
+                'Repeats the notification every few minutes until you mark it done or snooze it',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
@@ -236,10 +262,10 @@ class _TaskComposerSheetState extends State<TaskComposerSheet> {
               icon: const Icon(Icons.add_task_rounded),
               label: Text(
                 _selectedType == ComposerItemType.task
-                    ? 'Save Eisenhower Task'
+                    ? 'Add Task'
                     : _selectedType == ComposerItemType.cadenceGoal
-                        ? 'Save ${_cadence.label} Cadence Goal'
-                        : 'Schedule Persistent Appointment',
+                        ? 'Save ${_cadence.label} Routine'
+                        : 'Save Appointment',
               ),
               style: FilledButton.styleFrom(
                 minimumSize: const Size.fromHeight(50),
@@ -251,16 +277,37 @@ class _TaskComposerSheetState extends State<TaskComposerSheet> {
     );
   }
 
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(now.year - 1),
+      lastDate: DateTime(now.year + 3),
+    );
+    if (picked != null && mounted) {
+      setState(() => _selectedDate = picked);
+    }
+  }
+
   Future<void> _submit() async {
     final title = _titleController.text.trim();
     if (title.isEmpty) {
       setState(() {
-        _validationError = 'Title cannot be empty';
+        _validationError = 'Please enter a title';
       });
       return;
     }
 
-    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final now = DateTime.now();
+    final scheduledBase = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      now.hour,
+      now.minute,
+    );
+    final baseMs = scheduledBase.millisecondsSinceEpoch;
     const hourMs = 60 * 60 * 1000;
 
     if (_selectedType == ComposerItemType.task) {
@@ -268,7 +315,7 @@ class _TaskComposerSheetState extends State<TaskComposerSheet> {
         title: title,
         notes: _notesController.text,
         quadrant: _quadrant,
-        dueAtMillis: nowMs + (2 * hourMs),
+        dueAtMillis: baseMs + (2 * hourMs),
         isPersistentAlert: _isPersistentAlert,
       );
     } else if (_selectedType == ComposerItemType.cadenceGoal) {
@@ -277,7 +324,7 @@ class _TaskComposerSheetState extends State<TaskComposerSheet> {
         notes: _notesController.text,
         cadence: _cadence,
         quadrant: _quadrant,
-        nextDueAtMillis: nowMs + (3 * hourMs),
+        nextDueAtMillis: baseMs + (3 * hourMs),
         isPersistentAlert: _isPersistentAlert,
       );
       widget.controller.setCadenceHorizon(_cadence);
@@ -286,7 +333,7 @@ class _TaskComposerSheetState extends State<TaskComposerSheet> {
         title: title,
         locationOrLink: _locationController.text,
         notes: _notesController.text,
-        startsAtMillis: nowMs + (30 * 60 * 1000),
+        startsAtMillis: baseMs + (30 * 60 * 1000),
         leadMinutes: _leadMinutes,
         isPersistentAlert: _isPersistentAlert,
       );

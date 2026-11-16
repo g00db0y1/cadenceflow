@@ -5,11 +5,8 @@ import '../../models/task_item.dart';
 import '../../state/productivity_controller.dart';
 import '../../theme/app_theme.dart';
 
-/// Home Tab: Today & Eisenhower Matrix Screen.
-/// - Top summary strip with Today's completion ring, social-feed style urgent
-///   reminder badge counter, and quick quadrant filter chips.
-/// - Seamless toggle between **2x2 Matrix Grid View** and **Priority Queue View**
-///   (sorted Q1 -> Q2 -> Q3 -> Q4).
+/// Focus Tab: Priority Board & Daily Action List with solid, tactile cards
+/// and warm human-friendly language.
 class MatrixScreen extends StatelessWidget {
   const MatrixScreen({
     super.key,
@@ -28,11 +25,11 @@ class MatrixScreen extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
       children: [
-        // 1. Top Summary Strip (Completion Ring + Urgent Ping Counter)
+        // 1. Solid Hero Summary Card (Today's Progress + Active Reminder Badge)
         _buildTopSummaryCard(context, scheme, urgentCount),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
 
-        // 2. View Mode Toggle (2x2 Matrix Grid vs Priority Queue) & Filter Chips
+        // 2. View Mode Toggle (Priority Board vs Action List)
         Row(
           children: [
             Expanded(
@@ -40,13 +37,13 @@ class MatrixScreen extends StatelessWidget {
                 segments: const [
                   ButtonSegment<bool>(
                     value: false,
-                    icon: Icon(Icons.grid_view_rounded, size: 18),
-                    label: Text('2×2 Matrix'),
+                    icon: Icon(Icons.dashboard_rounded, size: 18),
+                    label: Text('Priority Board'),
                   ),
                   ButtonSegment<bool>(
                     value: true,
-                    icon: Icon(Icons.format_list_numbered_rounded, size: 18),
-                    label: Text('Priority Queue'),
+                    icon: Icon(Icons.format_list_bulleted_rounded, size: 18),
+                    label: Text('Action List'),
                   ),
                 ],
                 selected: {controller.isPriorityQueueView},
@@ -59,13 +56,13 @@ class MatrixScreen extends StatelessWidget {
         ),
         const SizedBox(height: 12),
 
-        // Quick Quadrant Filter Chips (when in Priority Queue or inspecting)
+        // Quick Priority Filter Chips
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
               FilterChip(
-                label: const Text('All Quadrants'),
+                label: const Text('All Tasks'),
                 selected: controller.selectedQuadrantFilter == null,
                 onSelected: (_) => controller.setQuadrantFilter(null),
               ),
@@ -97,9 +94,9 @@ class MatrixScreen extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
 
-        // 3. Main Content: 2x2 Grid OR Ranked Priority Queue
+        // 3. Main Content: Priority Board OR Ranked Action List
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 240),
           child: controller.isPriorityQueueView
@@ -118,96 +115,104 @@ class MatrixScreen extends StatelessWidget {
     final completed = controller.completedTasksCount;
     final total = controller.totalTasksCount;
     final ratio = controller.todayCompletionRatio;
+    final dueRoutines =
+        controller.cadenceGoals.where((g) => g.isDueTodayOrOverdue()).length;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            // Today's Completion Ring
-            SizedBox(
-              width: 58,
-              height: 58,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  CircularProgressIndicator(
-                    value: ratio,
-                    strokeWidth: 6,
-                    backgroundColor:
-                        scheme.surfaceContainerHighest.withValues(alpha: 0.6),
-                    valueColor: AlwaysStoppedAnimation<Color>(scheme.primary),
-                  ),
-                  Text(
-                    '${(ratio * 100).round()}%',
-                    style: CadenceFlowTheme.monoStyle(
-                      context,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: scheme.onSurface,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Today\'s Execution Pulse',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '$completed of $total tasks completed • ${controller.cadenceGoals.where((g) => g.isDueTodayOrOverdue()).length} cadences due',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-            if (urgentCount > 0)
-              InkWell(
-                onTap: onNavigateToAlerts,
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: CadenceFlowTheme.q1CoralRed.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: CadenceFlowTheme.q1CoralRed.withValues(alpha: 0.5),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.notifications_active_rounded,
-                        size: 16,
-                        color: CadenceFlowTheme.q1CoralRed,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '$urgentCount Ping${urgentCount == 1 ? '' : 's'}',
-                        style: const TextStyle(
-                          color: CadenceFlowTheme.q1CoralRed,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: CadenceFlowTheme.heroBannerDecoration(context),
+      child: Row(
+        children: [
+          // Today's Progress Ring
+          SizedBox(
+            width: 62,
+            height: 62,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                CircularProgressIndicator(
+                  value: ratio,
+                  strokeWidth: 6.5,
+                  backgroundColor: Colors.white.withValues(alpha: 0.22),
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                    CadenceFlowTheme.accentAmberDark,
                   ),
                 ),
+                Text(
+                  '${(ratio * 100).round()}%',
+                  style: CadenceFlowTheme.monoStyle(
+                    context,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Today\'s Progress',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: Colors.white,
+                      ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$completed of $total tasks done • $dueRoutines routine${dueRoutines == 1 ? '' : 's'} due today',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.88),
+                      ),
+                ),
+              ],
+            ),
+          ),
+          if (urgentCount > 0)
+            InkWell(
+              onTap: onNavigateToAlerts,
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: CadenceFlowTheme.q1CoralRed,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.25),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.notifications_active_rounded,
+                      size: 16,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '$urgentCount Alert${urgentCount == 1 ? '' : 's'}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }
@@ -266,12 +271,11 @@ class MatrixScreen extends StatelessWidget {
           );
         }
 
-        // Compact phone 2x2 summary grid + expandable cards (itel Power 70 friendly)
         return Column(
           children: quadrants
               .map(
                 (q) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.only(bottom: 14),
                   child: _QuadrantCard(
                     quadrant: q,
                     tasks: controller.tasksForQuadrant(q),
@@ -288,21 +292,20 @@ class MatrixScreen extends StatelessWidget {
   Widget _buildPriorityQueueList(BuildContext context) {
     final queue = controller.rankedPriorityQueue;
     if (queue.isEmpty) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            children: [
-              const Icon(Icons.check_circle_outline_rounded, size: 42),
-              const SizedBox(height: 10),
-              Text(
-                'No tasks in this quadrant filter',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 4),
-              const Text('Tap + below to capture a new task or goal.'),
-            ],
-          ),
+      return Container(
+        padding: const EdgeInsets.all(28),
+        decoration: CadenceFlowTheme.solidCardDecoration(context),
+        child: Column(
+          children: [
+            const Icon(Icons.check_circle_outline_rounded, size: 42),
+            const SizedBox(height: 10),
+            Text(
+              'No tasks in this view right now',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 4),
+            const Text('Tap "Add Task" below to add something new.'),
+          ],
         ),
       );
     }
@@ -340,17 +343,21 @@ class _QuadrantCard extends StatelessWidget {
     final activeTasks = tasks.where((t) => !t.isCompleted).toList();
     final completedTasks = tasks.where((t) => t.isCompleted).toList();
 
-    return Card(
+    return Container(
+      decoration: CadenceFlowTheme.solidCardDecoration(
+        context,
+        accentColor: quadrant.color,
+      ),
       clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
             decoration: BoxDecoration(
-              color: quadrant.color.withValues(alpha: 0.11),
+              color: quadrant.color.withValues(alpha: 0.14),
               border: Border(
-                left: BorderSide(color: quadrant.color, width: 5),
+                left: BorderSide(color: quadrant.color, width: 6),
               ),
             ),
             child: Row(
@@ -365,7 +372,7 @@ class _QuadrantCard extends StatelessWidget {
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           Text(
-                            quadrant.shortTag,
+                            quadrant.title,
                             style: Theme.of(context)
                                 .textTheme
                                 .titleMedium
@@ -373,25 +380,25 @@ class _QuadrantCard extends StatelessWidget {
                           ),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
+                              horizontal: 9,
+                              vertical: 3,
                             ),
                             decoration: BoxDecoration(
-                              color: quadrant.color.withValues(alpha: 0.18),
+                              color: quadrant.color,
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
-                              '${activeTasks.length} active',
+                              '${activeTasks.length} open',
                               style: CadenceFlowTheme.monoStyle(
                                 context,
                                 fontSize: 11,
-                                color: quadrant.color,
+                                color: Colors.white,
                               ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 3),
                       Text(
                         '${quadrant.subtitle} • ${quadrant.actionHint}',
                         style: Theme.of(context).textTheme.bodySmall,
@@ -406,13 +413,13 @@ class _QuadrantCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
-                'Clear quadrant — no tasks queued.',
+                'All clear here — no tasks waiting.',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             )
           else
             Padding(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(12),
               child: Column(
                 children: [
                   ...activeTasks.map(
@@ -458,13 +465,14 @@ class _TaskTile extends StatelessWidget {
         : null;
 
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
+      margin: const EdgeInsets.symmetric(vertical: 5),
+      decoration: CadenceFlowTheme.tactileTileDecoration(
+        context,
+        accentColor: task.quadrant.color,
+        isCompleted: task.isCompleted,
       ),
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
         leading: Checkbox(
           value: task.isCompleted,
           activeColor: task.quadrant.color,
@@ -477,7 +485,7 @@ class _TaskTile extends StatelessWidget {
                 content: Text(
                   task.isCompleted
                       ? 'Reopened "${task.title}"'
-                      : 'Completed "${task.title}"',
+                      : 'Done: "${task.title}"',
                 ),
                 action: SnackBarAction(
                   label: 'Undo',
@@ -520,11 +528,11 @@ class _TaskTile extends StatelessWidget {
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: task.quadrant.color.withValues(alpha: 0.15),
+                      color: task.quadrant.color.withValues(alpha: 0.16),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      task.quadrant.shortTag,
+                      task.quadrant.title,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
@@ -554,7 +562,7 @@ class _TaskTile extends StatelessWidget {
           ],
         ),
         trailing: PopupMenuButton<String>(
-          tooltip: 'Switch Quadrant or Delete',
+          tooltip: 'Change Priority or Delete',
           onSelected: (value) {
             if (value == 'DELETE') {
               controller.deleteTask(task.id);
@@ -566,7 +574,7 @@ class _TaskTile extends StatelessWidget {
           itemBuilder: (context) => [
             const PopupMenuItem<String>(
               enabled: false,
-              child: Text('Move to Quadrant'),
+              child: Text('Move to Priority Group'),
             ),
             ...EisenhowerQuadrant.values.map(
               (q) => PopupMenuItem<String>(
@@ -575,7 +583,7 @@ class _TaskTile extends StatelessWidget {
                   children: [
                     CircleAvatar(backgroundColor: q.color, radius: 6),
                     const SizedBox(width: 8),
-                    Text(q.shortTag),
+                    Text(q.title),
                   ],
                 ),
               ),

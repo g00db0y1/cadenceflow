@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import '../../config/app_config.dart';
 import '../../services/clerk_auth_service.dart';
 import '../../state/productivity_controller.dart';
-import '../../theme/app_theme.dart';
+import 'app_guide_sheet.dart';
 
-/// Account & Preferences Sheet accessible from the top-bar Clerk avatar:
-/// - Displays Clerk User ID (`sub` claim mapped to Supabase RLS) & auth method
-/// - Shows Cloud Sync vs. Offline Local Mirror status
-/// - Configures persistent escalation re-ping interval (5m / 10m / 15m)
-/// - Switches Light / Dark / System theme mode
+/// Account, Preferences & Help Sheet accessible from the top-bar avatar:
+/// - Displays signed-in account details & backup status in plain human language
+/// - Opens the "How to Use CadenceFlow" guide or re-runs First-Time Setup
+/// - Configures insistent reminder repeat interval (Every 5m / 10m / 15m)
+/// - Switches Light / Dark / Auto theme mode
 /// - Signs out cleanly
 class AccountPreferencesSheet extends StatelessWidget {
   const AccountPreferencesSheet({
@@ -25,7 +25,7 @@ class AccountPreferencesSheet extends StatelessWidget {
     final user = authService.currentUser;
     final scheme = Theme.of(context).colorScheme;
 
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -57,11 +57,6 @@ class AccountPreferencesSheet extends StatelessWidget {
                       user?.email ?? '',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Clerk sub: ${user?.id ?? 'local'}',
-                      style: CadenceFlowTheme.monoStyle(context, fontSize: 11),
-                    ),
                   ],
                 ),
               ),
@@ -69,31 +64,60 @@ class AccountPreferencesSheet extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           const Divider(),
-          const SizedBox(height: 10),
 
-          // Sync Status Row
+          // Backup Status Row
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: Icon(
               AppConfig.isCloudSyncEnabled
                   ? Icons.cloud_done_rounded
-                  : Icons.storage_rounded,
+                  : Icons.phone_android_rounded,
               color: scheme.primary,
             ),
             title: Text(
               AppConfig.isCloudSyncEnabled
-                  ? 'Supabase PostgreSQL + Clerk RLS Active'
-                  : 'Offline-First Local Mirror Active (Placeholders Set)',
+                  ? 'Cloud Backup Connected'
+                  : 'Saved on This Phone (Works Offline)',
             ),
             subtitle: const Text(
-              'All tasks, cadences, and alarm triggers are mirrored locally for 100% offline reliability on reboot.',
+              'Your tasks, calendar, routines, and reminders are safely stored on your device.',
             ),
+          ),
+
+          // Dedicated App Guide & Setup Walkthrough
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.menu_book_rounded, color: scheme.primary),
+            title: const Text('How to Use CadenceFlow'),
+            subtitle: const Text(
+              'Learn how Priority Groups, Calendar Views, Routines, and Reminders work.',
+            ),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () {
+              Navigator.of(context).pop();
+              showModalBottomSheet<void>(
+                context: context,
+                isScrollControlled: true,
+                useSafeArea: true,
+                builder: (_) => AppGuideSheet(controller: controller),
+              );
+            },
           ),
           const SizedBox(height: 10),
 
-          // Persistent Re-Ping Interval Selector
+          // Insistent Reminder Toggle & Interval Selector
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Insistent Reminders'),
+            subtitle: const Text(
+              'Keep nudging you automatically until you answer important alerts',
+            ),
+            value: controller.aggressiveModeEnabled,
+            onChanged: (v) => controller.setAggressiveModeEnabled(v),
+          ),
+          const SizedBox(height: 6),
           Text(
-            'Persistent Notification Escalation Re-Ping Interval',
+            'Repeat Unanswered Reminders',
             style: Theme.of(context).textTheme.labelLarge,
           ),
           const SizedBox(height: 8),
@@ -112,7 +136,7 @@ class AccountPreferencesSheet extends StatelessWidget {
 
           // Theme Mode Selector
           Text(
-            'Appearance & Theme (Teal & Amber Material 3)',
+            'App Appearance',
             style: Theme.of(context).textTheme.labelLarge,
           ),
           const SizedBox(height: 8),
@@ -121,7 +145,7 @@ class AccountPreferencesSheet extends StatelessWidget {
               ButtonSegment(
                 value: ThemeMode.system,
                 icon: Icon(Icons.brightness_auto_rounded, size: 16),
-                label: Text('System'),
+                label: Text('Auto'),
               ),
               ButtonSegment(
                 value: ThemeMode.light,
@@ -147,7 +171,7 @@ class AccountPreferencesSheet extends StatelessWidget {
               await authService.signOut();
             },
             icon: const Icon(Icons.logout_rounded),
-            label: const Text('Sign Out of Clerk Session'),
+            label: const Text('Sign Out'),
           ),
         ],
       ),

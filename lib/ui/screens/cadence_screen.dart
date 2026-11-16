@@ -5,11 +5,9 @@ import '../../models/enums.dart';
 import '../../state/productivity_controller.dart';
 import '../../theme/app_theme.dart';
 
-/// Cadences Tab: Dedicated 5-Tier Recurring Goal Planner.
-/// - Segmented horizon selector: **Daily**, **Bi-Daily (2d)**, **Weekly (7d)**,
-///   **Bi-Weekly (14d)**, and **Monthly**.
-/// - Displays streak counters, cycle progress bars, next due timestamps, and
-///   one-tap **Complete Cycle** rollover powered by `CadenceCalculator` with Undo.
+/// Routines Tab: Recurring habits and goals across 5 frequencies
+/// (Daily, Every 2 Days, Weekly, Every 2 Weeks, Monthly) with solid cards
+/// and warm human wording.
 class CadenceScreen extends StatelessWidget {
   const CadenceScreen({
     super.key,
@@ -27,7 +25,7 @@ class CadenceScreen extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
       children: [
-        // 1. 5-Horizon Selector Strip
+        // 1. Frequency Selector Strip
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
@@ -45,42 +43,43 @@ class CadenceScreen extends StatelessWidget {
             }).toList(),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
 
-        // 2. Hybrid Rollover Rule Banner for Selected Horizon
+        // 2. Friendly Summary Header Card
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: scheme.primary.withValues(alpha: 0.09),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: scheme.primary.withValues(alpha: 0.28),
-            ),
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: CadenceFlowTheme.heroBannerDecoration(context),
           child: Row(
             children: [
-              Icon(
-                selectedHorizon.isIntervalBased
-                    ? Icons.autorenew_rounded
-                    : Icons.event_repeat_rounded,
-                color: scheme.primary,
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(
+                  selectedHorizon.isIntervalBased
+                      ? Icons.autorenew_rounded
+                      : Icons.event_repeat_rounded,
+                  color: Colors.white,
+                ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${selectedHorizon.label} Horizon (${selectedHorizon.frequencyBadge})',
-                      style: Theme.of(context).textTheme.titleMedium,
+                      '${selectedHorizon.label} Routines',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: Colors.white,
+                          ),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      selectedHorizon.isIntervalBased
-                          ? 'Interval Rollover: Completing a cycle advances ${selectedHorizon.approximateDays}d from completion date so overdue items never pile up.'
-                          : 'Calendar Anchor Rollover: Preserves your exact weekday/day-of-month schedule across cycles.',
+                      selectedHorizon.humanDescription,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
+                            color: Colors.white.withValues(alpha: 0.88),
                           ),
                     ),
                   ],
@@ -91,31 +90,30 @@ class CadenceScreen extends StatelessWidget {
         ),
         const SizedBox(height: 16),
 
-        // 3. Cadence Goal Cards
+        // 3. Routine Cards
         if (goals.isEmpty)
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(28),
-              child: Column(
-                children: [
-                  const Icon(Icons.repeat_rounded, size: 42),
-                  const SizedBox(height: 10),
-                  Text(
-                    'No ${selectedHorizon.label} cadence goals yet',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Tap + to schedule a recurring goal for this horizon.',
-                  ),
-                ],
-              ),
+          Container(
+            padding: const EdgeInsets.all(28),
+            decoration: CadenceFlowTheme.solidCardDecoration(context),
+            child: Column(
+              children: [
+                Icon(Icons.repeat_rounded, size: 42, color: scheme.primary),
+                const SizedBox(height: 10),
+                Text(
+                  'No ${selectedHorizon.label.toLowerCase()} routines yet',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Tap "Add Routine" below to start a new habit.',
+                ),
+              ],
             ),
           )
         else
           ...goals.map(
             (goal) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.only(bottom: 14),
               child: _CadenceGoalCard(
                 goal: goal,
                 controller: controller,
@@ -144,177 +142,176 @@ class _CadenceGoalCard extends StatelessWidget {
     final nextDueFormatted =
         DateFormat('EEE, MMM d • h:mm a').format(goal.nextDueDateTime);
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color:
-                                  goal.quadrant.color.withValues(alpha: 0.14),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              goal.quadrant.shortTag,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: goal.quadrant.color,
-                              ),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: CadenceFlowTheme.solidCardDecoration(
+        context,
+        accentColor: goal.quadrant.color,
+        highlighted: isDue,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 9,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: goal.quadrant.color.withValues(alpha: 0.16),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            goal.quadrant.title,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: goal.quadrant.color,
                             ),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: CadenceFlowTheme.accentAmberLight
-                                  .withValues(alpha: 0.16),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              '🔥 ${goal.streakCount}-cycle streak',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: CadenceFlowTheme.accentAmberLight,
-                              ),
-                            ),
-                          ),
-                          if (isDue)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: CadenceFlowTheme.q1CoralRed
-                                    .withValues(alpha: 0.14),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Text(
-                                'DUE TODAY',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                  color: CadenceFlowTheme.q1CoralRed,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        goal.title,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      if (goal.notes.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          goal.notes,
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: scheme.onSurfaceVariant,
-                                  ),
                         ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 9,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: CadenceFlowTheme.accentAmberLight
+                                .withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '🔥 ${goal.streakCount} in a row',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: CadenceFlowTheme.accentAmberLight,
+                            ),
+                          ),
+                        ),
+                        if (isDue)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 9,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: CadenceFlowTheme.q1CoralRed,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Text(
+                              'DUE TODAY',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
                       ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      goal.title,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    if (goal.notes.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        goal.notes,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                      ),
                     ],
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Delete Cadence Goal',
-                  icon: const Icon(Icons.delete_outline_rounded, size: 20),
-                  onPressed: () => controller.deleteCadenceGoal(goal.id),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // Progress bar across current cycle
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: LinearProgressIndicator(
-                value: progress,
-                minHeight: 7,
-                backgroundColor: scheme.surfaceContainerHighest,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  isDue ? CadenceFlowTheme.accentAmberLight : scheme.primary,
+                  ],
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
+              IconButton(
+                tooltip: 'Delete Routine',
+                icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                onPressed: () => controller.deleteCadenceGoal(goal.id),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
 
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'NEXT DUE CYCLE',
-                        style: CadenceFlowTheme.monoStyle(
-                          context,
-                          fontSize: 10,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        nextDueFormatted,
-                        style: CadenceFlowTheme.monoStyle(
-                          context,
-                          fontSize: 12,
-                          color: scheme.onSurface,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                FilledButton.tonalIcon(
-                  onPressed: () async {
-                    final previous =
-                        await controller.completeCadenceCycle(goal);
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).clearSnackBars();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Advanced "${goal.title}" to next ${goal.cadence.label.toLowerCase()} cycle (🔥 ${goal.streakCount + 1})',
-                        ),
-                        action: SnackBarAction(
-                          label: 'Undo',
-                          onPressed: () =>
-                              controller.restoreCadenceGoalState(previous),
-                        ),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.check_circle_rounded, size: 18),
-                  label: const Text('Complete Cycle'),
-                ),
-              ],
+          // Progress bar across current cycle
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 8,
+              backgroundColor: scheme.surfaceContainerHighest,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                isDue ? CadenceFlowTheme.accentAmberLight : scheme.primary,
+              ),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 14),
+
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'NEXT UP',
+                      style: CadenceFlowTheme.monoStyle(
+                        context,
+                        fontSize: 10,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      nextDueFormatted,
+                      style: CadenceFlowTheme.monoStyle(
+                        context,
+                        fontSize: 12,
+                        color: scheme.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              FilledButton.icon(
+                onPressed: () async {
+                  final previous = await controller.completeCadenceCycle(goal);
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).clearSnackBars();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Great job! "${goal.title}" is set for next time (🔥 ${goal.streakCount + 1})',
+                      ),
+                      action: SnackBarAction(
+                        label: 'Undo',
+                        onPressed: () =>
+                            controller.restoreCadenceGoalState(previous),
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.check_circle_rounded, size: 18),
+                label: const Text('Mark Done'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

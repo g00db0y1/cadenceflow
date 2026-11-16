@@ -4,10 +4,7 @@ import '../../services/clerk_auth_service.dart';
 import '../../theme/app_theme.dart';
 import '../widgets/brand_icon.dart';
 
-/// Branded Clerk Authentication Gate offering:
-/// 1. 1-Tap Google Sign-In (Clerk OAuth)
-/// 2. Passwordless Email OTP verification (Clerk Frontend API)
-/// 3. Instant Offline-First Workspace Mode (works out of the box with placeholders)
+/// Welcome & Sign-In screen with warm, human-friendly wording and solid card styling.
 class ClerkAuthGateScreen extends StatefulWidget {
   const ClerkAuthGateScreen({
     super.key,
@@ -47,13 +44,12 @@ class _ClerkAuthGateScreenState extends State<ClerkAuthGateScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Brand Logo & Tagline
                   const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       CadenceFlowBrandIcon(
-                        size: 68,
-                        borderRadius: 18,
+                        size: 72,
+                        borderRadius: 20,
                         showGlow: true,
                       ),
                     ],
@@ -66,7 +62,7 @@ class _ClerkAuthGateScreenState extends State<ClerkAuthGateScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Eisenhower Priority • 5-Tier Cadence Goals • Persistent Social-Style Reminders',
+                    'Focus on what matters today, plan your calendar, and never miss an important reminder.',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: scheme.onSurfaceVariant,
@@ -74,31 +70,25 @@ class _ClerkAuthGateScreenState extends State<ClerkAuthGateScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Clerk + Supabase Connection Readiness Pill
+                  // Friendly Status Pill
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 14,
                       vertical: 10,
                     ),
-                    decoration: BoxDecoration(
-                      color: AppConfig.isCloudSyncEnabled
-                          ? CadenceFlowTheme.q2DeepTeal.withValues(alpha: 0.12)
-                          : CadenceFlowTheme.q3WarmAmber
-                              .withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: AppConfig.isCloudSyncEnabled
-                            ? CadenceFlowTheme.q2DeepTeal.withValues(alpha: 0.4)
-                            : CadenceFlowTheme.q3WarmAmber
-                                .withValues(alpha: 0.4),
-                      ),
+                    decoration: CadenceFlowTheme.solidCardDecoration(
+                      context,
+                      accentColor: AppConfig.isCloudSyncEnabled
+                          ? CadenceFlowTheme.q2DeepTeal
+                          : CadenceFlowTheme.q3WarmAmber,
+                      borderRadius: 14,
                     ),
                     child: Row(
                       children: [
                         Icon(
                           AppConfig.isCloudSyncEnabled
                               ? Icons.cloud_done_rounded
-                              : Icons.offline_bolt_rounded,
+                              : Icons.phone_android_rounded,
                           size: 20,
                           color: AppConfig.isCloudSyncEnabled
                               ? CadenceFlowTheme.q2DeepTeal
@@ -108,11 +98,11 @@ class _ClerkAuthGateScreenState extends State<ClerkAuthGateScreen> {
                         Expanded(
                           child: Text(
                             AppConfig.isCloudSyncEnabled
-                                ? 'Clerk Auth + Supabase RLS Active'
-                                : 'Placeholders Active • Offline-First Local Mirror Ready (itel Power 70 Optimized)',
+                                ? 'Cloud Backup Connected'
+                                : 'Works Offline — Saved Directly on Your Phone',
                             style:
                                 Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      fontWeight: FontWeight.w600,
+                                      fontWeight: FontWeight.w700,
                                     ),
                           ),
                         ),
@@ -121,14 +111,17 @@ class _ClerkAuthGateScreenState extends State<ClerkAuthGateScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Card Container
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: pendingEmail == null
-                          ? _buildSignInOptions(context, scheme)
-                          : _buildOtpVerification(context, scheme, pendingEmail),
+                  // Solid Sign-In Card
+                  Container(
+                    padding: const EdgeInsets.all(22),
+                    decoration: CadenceFlowTheme.solidCardDecoration(
+                      context,
+                      accentColor: scheme.primary,
+                      highlighted: true,
                     ),
+                    child: pendingEmail == null
+                        ? _buildSignInOptions(context, scheme)
+                        : _buildOtpVerification(context, scheme, pendingEmail),
                   ),
                 ],
               ),
@@ -144,25 +137,24 @@ class _ClerkAuthGateScreenState extends State<ClerkAuthGateScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Sign in with Clerk',
+          'Welcome to CadenceFlow',
           style: Theme.of(context).textTheme.titleLarge,
         ),
         const SizedBox(height: 4),
         Text(
-          'Syncs your tasks, cadence streaks, and appointment alarms to Supabase PostgreSQL.',
+          'Sign in to back up your tasks, calendar, and routines across devices.',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
               ),
         ),
         const SizedBox(height: 20),
 
-        // 1-Tap Google Sign-In via Clerk
         FilledButton.icon(
           onPressed: widget.authService.isLoading
               ? null
               : () => widget.authService.signInWithGoogle(),
           icon: const Icon(Icons.g_mobiledata_rounded, size: 26),
-          label: const Text('Continue with Google (Clerk OAuth)'),
+          label: const Text('Continue with Google'),
           style: FilledButton.styleFrom(
             minimumSize: const Size.fromHeight(50),
           ),
@@ -175,7 +167,7 @@ class _ClerkAuthGateScreenState extends State<ClerkAuthGateScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Text(
-                'OR PASSWORDLESS EMAIL OTP',
+                'OR SIGN IN WITH EMAIL',
                 style: CadenceFlowTheme.monoStyle(context, fontSize: 10),
               ),
             ),
@@ -204,7 +196,7 @@ class _ClerkAuthGateScreenState extends State<ClerkAuthGateScreen> {
                     _emailController.text,
                   ),
           icon: const Icon(Icons.mark_email_read_outlined),
-          label: const Text('Send Clerk Verification Code'),
+          label: const Text('Send Login Code'),
           style: OutlinedButton.styleFrom(
             minimumSize: const Size.fromHeight(48),
           ),
@@ -223,8 +215,8 @@ class _ClerkAuthGateScreenState extends State<ClerkAuthGateScreen> {
           onPressed: widget.authService.isLoading
               ? null
               : () => widget.authService.continueInOfflineWorkspace(),
-          icon: const Icon(Icons.phone_android_rounded, size: 18),
-          label: const Text('Start Immediately in Local Offline Workspace'),
+          icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+          label: const Text('Continue on This Phone'),
         ),
       ],
     );
@@ -239,12 +231,12 @@ class _ClerkAuthGateScreenState extends State<ClerkAuthGateScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Enter Verification Code',
+          'Check Your Email',
           style: Theme.of(context).textTheme.titleLarge,
         ),
         const SizedBox(height: 6),
         Text(
-          'Clerk sent a 6-digit one-time code to $email',
+          'We sent a 6-digit login code to $email',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
               ),
@@ -255,7 +247,7 @@ class _ClerkAuthGateScreenState extends State<ClerkAuthGateScreen> {
           keyboardType: TextInputType.number,
           style: CadenceFlowTheme.monoStyle(context, fontSize: 18),
           decoration: InputDecoration(
-            labelText: '6-Digit Clerk OTP Code',
+            labelText: '6-Digit Code',
             prefixIcon: const Icon(Icons.lock_clock_outlined),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -270,7 +262,7 @@ class _ClerkAuthGateScreenState extends State<ClerkAuthGateScreen> {
                     _otpController.text,
                   ),
           icon: const Icon(Icons.verified_user_rounded),
-          label: const Text('Verify & Hydrate Workspace'),
+          label: const Text('Verify & Continue'),
           style: FilledButton.styleFrom(
             minimumSize: const Size.fromHeight(50),
           ),
@@ -278,7 +270,7 @@ class _ClerkAuthGateScreenState extends State<ClerkAuthGateScreen> {
         const SizedBox(height: 8),
         TextButton(
           onPressed: widget.authService.cancelPendingOtp,
-          child: const Text('Use a different email or method'),
+          child: const Text('Use a different email'),
         ),
       ],
     );

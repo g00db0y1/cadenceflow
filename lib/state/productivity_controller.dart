@@ -9,17 +9,18 @@ import '../models/task_item.dart';
 import '../services/reminder_scheduler.dart';
 
 /// Central state controller for CadenceFlow:
-/// - Manages Eisenhower Matrix tasks (2x2 Grid + Priority Queue + Quadrant Filters)
-/// - Manages 5-tier Cadence Goals (`DAILY` -> `MONTHLY`) and hybrid cycle rollovers
-/// - Manages Appointments & the Social-Media-Style Attention Feed
-/// - Coordinates optimistic UI updates, Undo snackbar state, local offline
-///   mirroring, Supabase cloud sync, and `ReminderScheduler` escalation alarms.
+/// - Manages Priority Tasks (Board View + Action List + Priority Filters)
+/// - Manages Calendar Overview (Daily, Weekly, and Monthly views)
+/// - Manages Recurring Routines & Goals (`DAILY` -> `MONTHLY`)
+/// - Manages Appointments & Insistent/Aggressive Reminders
+/// - Manages First-Startup Guided Setup Wizard state
 class ProductivityController extends ChangeNotifier {
   ProductivityController({
     required this.repository,
     required this.reminderScheduler,
   }) {
     reminderScheduler.onForegroundAction = _handleNotificationAction;
+    reminderScheduler.onEscalationStateChanged = notifyListeners;
   }
 
   final ProductivityRepository repository;
@@ -28,15 +29,22 @@ class ProductivityController extends ChangeNotifier {
 
   String _userId = 'user_local_itel_power70';
   bool _isLoading = false;
+  bool _isOnboardingCompleted = false;
   ThemeMode _themeMode = ThemeMode.system;
-  int _defaultRepingMinutes = 10;
+  int _defaultRepingMinutes = 5;
+  bool _aggressiveModeEnabled = true;
+  int _dailyStartHour = 8;
 
-  // Eisenhower View State
+  // Priority View State
   bool _isPriorityQueueView = false;
   EisenhowerQuadrant? _selectedQuadrantFilter;
 
-  // Cadence Horizon Selector State
+  // Routine Horizon Selector State
   CadenceType _selectedCadenceHorizon = CadenceType.daily;
+
+  // Calendar View State
+  CalendarViewMode _calendarViewMode = CalendarViewMode.monthly;
+  DateTime _selectedCalendarDate = _stripTime(DateTime.now());
 
   List<TaskItem> _tasks = [];
   List<CadenceGoal> _cadenceGoals = [];
@@ -45,17 +53,27 @@ class ProductivityController extends ChangeNotifier {
   // Getters
   String get userId => _userId;
   bool get isLoading => _isLoading;
+  bool get isOnboardingCompleted => _isOnboardingCompleted;
   ThemeMode get themeMode => _themeMode;
   int get defaultRepingMinutes => _defaultRepingMinutes;
+  bool get aggressiveModeEnabled => _aggressiveModeEnabled;
+  int get dailyStartHour => _dailyStartHour;
   bool get isPriorityQueueView => _isPriorityQueueView;
   EisenhowerQuadrant? get selectedQuadrantFilter => _selectedQuadrantFilter;
   CadenceType get selectedCadenceHorizon => _selectedCadenceHorizon;
+  CalendarViewMode get calendarViewMode => _calendarViewMode;
+  DateTime get selectedCalendarDate => _selectedCalendarDate;
 
   List<TaskItem> get tasks => List.unmodifiable(_tasks);
   List<CadenceGoal> get cadenceGoals => List.unmodifiable(_cadenceGoals);
   List<Appointment> get appointments => List.unmodifiable(_appointments);
 
-  /// Tasks sorted by Eisenhower Quadrant rank (Q1 -> Q2 -> Q3 -> Q4), then due time.
+  static DateTime _stripTime(DateTime dt) => DateTime(dt.year, dt.month, dt.day);
+
+  static bool isSameCalendarDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  /// Tasks sorted by Priority rank (Do First -> Plan Ahead -> Quick Tasks -> For Later), then due time.
   List<TaskItem> get rankedPriorityQueue {
     final filtered = _selectedQuadrantFilter == null
         ? List<TaskItem>.from(_tasks)
@@ -93,12 +111,12 @@ class ProductivityController extends ChangeNotifier {
     return list;
   }
 
-  /// Active social-style urgent alerts requiring user acknowledgment.
+  /// Active urgent reminders requiring user acknowledgment.
   List<Appointment> get activeAttentionFeed {
     return _appointments.where((a) => a.isAttentionSeeking()).toList();
   }
 
-  /// Count of unacknowledged urgent pings + overdue Q1 tasks + due cadence goals.
+  /// Count of unacknowledged urgent reminders + overdue Do First tasks.
   int get urgentAttentionCount {
     final pingingAppts = activeAttentionFeed.length;
     final overdueQ1 = _tasks
@@ -115,7 +133,123 @@ class ProductivityController extends ChangeNotifier {
   double get todayCompletionRatio =>
       totalTasksCount == 0 ? 0.0 : completedTasksCount / totalTasksCount;
 
-  /// Hydrates data for the authenticated Clerk user (or offline workspace).
+  // ---------------------------------------------------------------------------
+  // Calendar Overview Queries (Daily, Weekly, Monthly)
+  // ---------------------------------------------------------------------------
+
+  void setCalendarViewMode(CalendarViewMode mode) {
+    _calendarViewMode = mode;
+    notifyListeners();
+  }
+
+  void selectCalendarDate(DateTime date) {
+    _selectedCalendarDate = _stripTime(date);
+    notifyListeners();
+  }
+
+  void jumpToToday() {
+    _selectedCalendarDate = _stripTime(DateTime.now());
+    notifyListeners();
+  }
+
+  void stepCalendarPeriod(int direction) {
+    final current = _selectedCalendarDate;
+    switch (_calendarViewMode) {
+      case CalendarViewMode.daily:
+        _selectedCalendarDate = current.add(Duration(days: direction));
+        break;
+      case CalendarViewMode.weekly:
+        _selectedCalendarDate = current.add(Duration(days: 7 * direction));
+        break;
+      case CalendarViewMode.monthly:
+        _selectedCalendarDate = DateTime(
+          current.year,
+          current.month + direction,
+          1,
+        );
+        break;
+    }
+    notifyListeners();
+  }
+
+  /// Returns all tasks scheduled for [day]. If [day] is today, also includes
+  /// active tasks without a specific due date so nothing gets overlooked.
+  List<TaskItem> tasksForDate(DateTime day) {
+    final target = _stripTime(day);
+    final today = _stripTime(DateTime.now());
+    final matches = _tasks.where((task) {
+      if (task.dueAtMillis == null) {
+        return isSameCalendarDay(target, today);
+      }
+      final dueDate =
+          DateTime.fromMillisecondsSinceEpoch(task.dueAtMillis!);
+      return isSameCalendarDay(dueDate, target);
+    }).toList();
+
+    matches.sort((a, b) {
+      if (a.isCompleted != b.isCompleted) return a.isCompleted ? 1 : -1;
+      final rankCmp = a.quadrant.rank.compareTo(b.quadrant.rank);
+      if (rankCmp != 0) return rankCmp;
+      return (a.dueAtMillis ?? 0).compareTo(b.dueAtMillis ?? 0);
+    });
+    return matches;
+  }
+
+  /// Returns routines due on [day] (including recurring schedule projection for
+  /// future calendar dates so Daily/Weekly/Monthly views show upcoming habits).
+  List<CadenceGoal> routinesForDate(DateTime day) {
+    final target = _stripTime(day);
+    final matches = _cadenceGoals
+        .where((goal) => goal.isActive && isRoutineScheduledOnDate(goal, target))
+        .toList();
+    matches.sort((a, b) => a.reminderHour.compareTo(b.reminderHour));
+    return matches;
+  }
+
+  bool isRoutineScheduledOnDate(CadenceGoal goal, DateTime day) {
+    final target = _stripTime(day);
+    final anchor = _stripTime(goal.nextDueDateTime);
+
+    if (isSameCalendarDay(target, anchor)) return true;
+    if (target.isBefore(anchor)) return false;
+
+    final diffDays = target.difference(anchor).inDays;
+    switch (goal.cadence) {
+      case CadenceType.daily:
+        return true;
+      case CadenceType.biDaily:
+        return diffDays % 2 == 0;
+      case CadenceType.weekly:
+        return target.weekday == anchor.weekday;
+      case CadenceType.biWeekly:
+        return diffDays % 14 == 0;
+      case CadenceType.monthly:
+        final maxDay = DateTime(target.year, target.month + 1, 0).day;
+        final expectedDay = anchor.day > maxDay ? maxDay : anchor.day;
+        return target.day == expectedDay;
+    }
+  }
+
+  /// Returns appointments scheduled on [day].
+  List<Appointment> appointmentsForDate(DateTime day) {
+    final target = _stripTime(day);
+    final matches = _appointments
+        .where((appt) => isSameCalendarDay(appt.startsAtDateTime, target))
+        .toList();
+    matches.sort((a, b) => a.startsAtMillis.compareTo(b.startsAtMillis));
+    return matches;
+  }
+
+  int totalItemsForDate(DateTime day) {
+    return tasksForDate(day).length +
+        routinesForDate(day).length +
+        appointmentsForDate(day).length;
+  }
+
+  // ---------------------------------------------------------------------------
+  // User Hydration & First-Startup Guided Setup
+  // ---------------------------------------------------------------------------
+
   Future<void> bindUserAndHydrate(String newUserId) async {
     _userId = newUserId;
     _isLoading = true;
@@ -124,6 +258,13 @@ class ProductivityController extends ChangeNotifier {
     await repository.localMirror.setActiveUserId(newUserId);
     _defaultRepingMinutes =
         await repository.localMirror.getDefaultRepingMinutes();
+    _aggressiveModeEnabled =
+        await repository.localMirror.getAggressiveModeEnabled();
+    _dailyStartHour = await repository.localMirror.getDailyStartHour();
+    _isOnboardingCompleted =
+        await repository.localMirror.isOnboardingCompleted(newUserId);
+
+    reminderScheduler.setAggressiveMode(_aggressiveModeEnabled);
 
     _tasks = await repository.fetchTasks(newUserId);
     _cadenceGoals = await repository.fetchCadenceGoals(newUserId);
@@ -134,9 +275,46 @@ class ProductivityController extends ChangeNotifier {
       tasks: _tasks,
       cadenceGoals: _cadenceGoals,
       appointments: _appointments,
+      defaultRepingMinutes: _defaultRepingMinutes,
     );
 
     _isLoading = false;
+    notifyListeners();
+  }
+
+  /// Completes the first-startup setup walkthrough and persists preferences.
+  Future<void> completeOnboarding({
+    int? repingMinutes,
+    bool? aggressiveEnabled,
+    int? dailyStartHour,
+    ThemeMode? selectedThemeMode,
+  }) async {
+    if (repingMinutes != null) {
+      _defaultRepingMinutes = repingMinutes;
+      await repository.localMirror.setDefaultRepingMinutes(repingMinutes);
+    }
+    if (aggressiveEnabled != null) {
+      _aggressiveModeEnabled = aggressiveEnabled;
+      reminderScheduler.setAggressiveMode(aggressiveEnabled);
+      await repository.localMirror.setAggressiveModeEnabled(aggressiveEnabled);
+    }
+    if (dailyStartHour != null) {
+      _dailyStartHour = dailyStartHour;
+      await repository.localMirror.setDailyStartHour(dailyStartHour);
+    }
+    if (selectedThemeMode != null) {
+      _themeMode = selectedThemeMode;
+    }
+
+    _isOnboardingCompleted = true;
+    await repository.localMirror.setOnboardingCompleted(_userId, true);
+    notifyListeners();
+  }
+
+  /// Allows re-opening the guided setup wizard at any time from Settings/Help.
+  Future<void> reopenOnboardingWizard() async {
+    _isOnboardingCompleted = false;
+    await repository.localMirror.setOnboardingCompleted(_userId, false);
     notifyListeners();
   }
 
@@ -164,6 +342,19 @@ class ProductivityController extends ChangeNotifier {
   Future<void> setDefaultRepingMinutes(int minutes) async {
     _defaultRepingMinutes = minutes;
     await repository.localMirror.setDefaultRepingMinutes(minutes);
+    notifyListeners();
+  }
+
+  Future<void> setAggressiveModeEnabled(bool enabled) async {
+    _aggressiveModeEnabled = enabled;
+    reminderScheduler.setAggressiveMode(enabled);
+    await repository.localMirror.setAggressiveModeEnabled(enabled);
+    notifyListeners();
+  }
+
+  Future<void> setDailyStartHour(int hour) async {
+    _dailyStartHour = hour;
+    await repository.localMirror.setDailyStartHour(hour);
     notifyListeners();
   }
 
@@ -202,8 +393,10 @@ class ProductivityController extends ChangeNotifier {
         entityId: task.id,
         userId: _userId,
         title: task.title,
-        subtitle: '${task.quadrant.shortTag} • Priority Task Reminder',
-        badgeTag: task.quadrant.shortTag.toUpperCase(),
+        subtitle:
+            '${task.quadrant.title} • Repeats every $_defaultRepingMinutes min until done',
+        badgeTag: task.quadrant.title.toUpperCase(),
+        repingIntervalMinutes: _defaultRepingMinutes,
         isPersistent: true,
       );
     }
@@ -250,7 +443,7 @@ class ProductivityController extends ChangeNotifier {
   }
 
   // ---------------------------------------------------------------------------
-  // Cadence Goal Actions (5-Tier Rollover Engine)
+  // Routine & Goal Actions
   // ---------------------------------------------------------------------------
 
   Future<CadenceGoal> createCadenceGoal({
@@ -285,9 +478,6 @@ class ProductivityController extends ChangeNotifier {
     return goal;
   }
 
-  /// Completes the current cycle for [goal], increments its streak, and
-  /// advances `nextDueAtMillis` using the hybrid [CadenceCalculator].
-  /// Returns the previous state so an Undo snackbar can restore it cleanly.
   Future<CadenceGoal> completeCadenceCycle(
     CadenceGoal goal, {
     DateTime? completedAt,
@@ -323,7 +513,7 @@ class ProductivityController extends ChangeNotifier {
   }
 
   // ---------------------------------------------------------------------------
-  // Appointment & Persistent Alert Actions
+  // Appointment & Aggressive Reminder Actions
   // ---------------------------------------------------------------------------
 
   Future<Appointment> createAppointment({
@@ -369,9 +559,10 @@ class ProductivityController extends ChangeNotifier {
         userId: _userId,
         title: appt.title,
         subtitle: appt.locationOrLink.isNotEmpty
-            ? '${appt.locationOrLink} • Re-pings every ${appt.repingIntervalMinutes}m until acknowledged'
-            : 'Lead alert (${appt.leadMinutes}m) • Re-pings every ${appt.repingIntervalMinutes}m',
-        badgeTag: 'PERSISTENT APPOINTMENT PING',
+            ? '${appt.locationOrLink} • Repeats every ${appt.repingIntervalMinutes} min until answered'
+            : 'Starts in ${appt.leadMinutes} min • Repeats every ${appt.repingIntervalMinutes} min',
+        badgeTag: 'INSISTENT REMINDER',
+        repingIntervalMinutes: appt.repingIntervalMinutes,
         isPersistent: true,
       );
     }
@@ -399,6 +590,20 @@ class ProductivityController extends ChangeNotifier {
     );
     await _saveAppointmentState(updated);
     await reminderScheduler.cancelReminder('appointment', appt.id);
+
+    // Schedule automatic wake-up when snooze expires so aggressive alert resumes.
+    reminderScheduler.scheduleSnoozeWakeup(
+      entityType: 'appointment',
+      entityId: appt.id,
+      duration: Duration(minutes: minutes),
+      onWakeup: () {
+        final idx = _appointments.indexWhere((a) => a.id == appt.id);
+        if (idx >= 0 &&
+            _appointments[idx].alertStatus == AlertStatus.snoozed) {
+          triggerNowPing(_appointments[idx]);
+        }
+      },
+    );
   }
 
   Future<void> completeAppointment(Appointment appt) async {
@@ -411,8 +616,7 @@ class ProductivityController extends ChangeNotifier {
     await reminderScheduler.cancelReminder('appointment', appt.id);
   }
 
-  /// Simulates/fires an immediate attention-seeking escalation ping for testing
-  /// on devices like the itel Power 70.
+  /// Fires an immediate insistent reminder alert for an appointment.
   Future<void> triggerNowPing(Appointment appt) async {
     final updated = appt.copyWith(
       alertStatus: AlertStatus.pinging,
@@ -426,10 +630,29 @@ class ProductivityController extends ChangeNotifier {
       userId: _userId,
       title: appt.title,
       subtitle: appt.locationOrLink.isNotEmpty
-          ? '${appt.locationOrLink} • Escalation ping every ${appt.repingIntervalMinutes}m'
-          : 'Urgent Appointment Ping • Escalation every ${appt.repingIntervalMinutes}m',
-      badgeTag: 'URGENT SOCIAL PING',
+          ? '${appt.locationOrLink} • Ringing every ${appt.repingIntervalMinutes} min'
+          : 'Important Reminder • Ringing every ${appt.repingIntervalMinutes} min',
+      badgeTag: 'URGENT REMINDER',
+      repingIntervalMinutes: appt.repingIntervalMinutes,
       isPersistent: appt.isPersistentAlert,
+    );
+  }
+
+  /// Fires a live test of the insistent notification system so the user can
+  /// verify sound, vibration, and in-app banner behavior immediately.
+  Future<void> triggerTestAggressiveAlert() async {
+    if (_appointments.isNotEmpty) {
+      await triggerNowPing(_appointments.first);
+      return;
+    }
+    await createAppointment(
+      title: 'Quick Reminder Test',
+      locationOrLink: 'Tap Got It or Snooze to silence this alert',
+      startsAtMillis:
+          DateTime.now().add(const Duration(minutes: 5)).millisecondsSinceEpoch,
+      leadMinutes: 15,
+      isPersistentAlert: true,
+      repingIntervalMinutes: _defaultRepingMinutes,
     );
   }
 
