@@ -4,7 +4,9 @@ import '../../services/clerk_auth_service.dart';
 import '../../theme/app_theme.dart';
 import '../widgets/brand_icon.dart';
 
-/// Welcome & Sign-In screen with warm, human-friendly wording and solid card styling.
+/// Welcome, Sign-In, and Sign-Up screen powered by Clerk Auth
+/// (`app_3MCWyxqnF0GnpRlYDILJgqs2pZ4`) with warm, human-friendly wording
+/// and solid card styling.
 class ClerkAuthGateScreen extends StatefulWidget {
   const ClerkAuthGateScreen({
     super.key,
@@ -18,12 +20,15 @@ class ClerkAuthGateScreen extends StatefulWidget {
 }
 
 class _ClerkAuthGateScreenState extends State<ClerkAuthGateScreen> {
+  bool _isSignUpMode = false;
+  final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _otpController =
       TextEditingController(text: '482910');
 
   @override
   void dispose() {
+    _nameController.dispose();
     _emailController.dispose();
     _otpController.dispose();
     super.dispose();
@@ -33,6 +38,7 @@ class _ClerkAuthGateScreenState extends State<ClerkAuthGateScreen> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final pendingEmail = widget.authService.pendingEmailForOtp;
+    final isClerkReady = widget.authService.isLiveClerkConfigured;
 
     return Scaffold(
       body: SafeArea(
@@ -78,7 +84,7 @@ class _ClerkAuthGateScreenState extends State<ClerkAuthGateScreen> {
                     ),
                     decoration: CadenceFlowTheme.solidCardDecoration(
                       context,
-                      accentColor: AppConfig.isCloudSyncEnabled
+                      accentColor: AppConfig.isCloudSyncEnabled || isClerkReady
                           ? CadenceFlowTheme.q2DeepTeal
                           : CadenceFlowTheme.q3WarmAmber,
                       borderRadius: 14,
@@ -86,19 +92,19 @@ class _ClerkAuthGateScreenState extends State<ClerkAuthGateScreen> {
                     child: Row(
                       children: [
                         Icon(
-                          AppConfig.isCloudSyncEnabled
+                          AppConfig.isCloudSyncEnabled || isClerkReady
                               ? Icons.cloud_done_rounded
                               : Icons.phone_android_rounded,
                           size: 20,
-                          color: AppConfig.isCloudSyncEnabled
+                          color: AppConfig.isCloudSyncEnabled || isClerkReady
                               ? CadenceFlowTheme.q2DeepTeal
                               : CadenceFlowTheme.q3WarmAmber,
                         ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            AppConfig.isCloudSyncEnabled
-                                ? 'Cloud Backup Connected'
+                            AppConfig.isCloudSyncEnabled || isClerkReady
+                                ? 'Cloud Account Ready (${widget.authService.applicationId})'
                                 : 'Works Offline — Saved Directly on Your Phone',
                             style:
                                 Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -111,7 +117,7 @@ class _ClerkAuthGateScreenState extends State<ClerkAuthGateScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Solid Sign-In Card
+                  // Solid Sign-In / Sign-Up Card
                   Container(
                     padding: const EdgeInsets.all(22),
                     decoration: CadenceFlowTheme.solidCardDecoration(
@@ -120,7 +126,7 @@ class _ClerkAuthGateScreenState extends State<ClerkAuthGateScreen> {
                       highlighted: true,
                     ),
                     child: pendingEmail == null
-                        ? _buildSignInOptions(context, scheme)
+                        ? _buildSignInOrSignUpOptions(context, scheme)
                         : _buildOtpVerification(context, scheme, pendingEmail),
                   ),
                 ],
@@ -132,7 +138,7 @@ class _ClerkAuthGateScreenState extends State<ClerkAuthGateScreen> {
     );
   }
 
-  Widget _buildSignInOptions(BuildContext context, ColorScheme scheme) {
+  Widget _buildSignInOrSignUpOptions(BuildContext context, ColorScheme scheme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -142,12 +148,33 @@ class _ClerkAuthGateScreenState extends State<ClerkAuthGateScreen> {
         ),
         const SizedBox(height: 4),
         Text(
-          'Sign in to back up your tasks, calendar, and routines across devices.',
+          'Sign in or create an account to back up your tasks, calendar, and routines across devices.',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
               ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
+
+        // Sign In / Sign Up Mode Toggle
+        SegmentedButton<bool>(
+          segments: const [
+            ButtonSegment<bool>(
+              value: false,
+              icon: Icon(Icons.login_rounded, size: 16),
+              label: Text('Sign In'),
+            ),
+            ButtonSegment<bool>(
+              value: true,
+              icon: Icon(Icons.person_add_alt_1_rounded, size: 16),
+              label: Text('Sign Up'),
+            ),
+          ],
+          selected: {_isSignUpMode},
+          onSelectionChanged: (s) {
+            setState(() => _isSignUpMode = s.first);
+          },
+        ),
+        const SizedBox(height: 18),
 
         FilledButton.icon(
           onPressed: widget.authService.isLoading
@@ -176,6 +203,21 @@ class _ClerkAuthGateScreenState extends State<ClerkAuthGateScreen> {
         ),
         const SizedBox(height: 16),
 
+        if (_isSignUpMode) ...[
+          TextField(
+            controller: _nameController,
+            decoration: InputDecoration(
+              labelText: 'Your Name',
+              hintText: 'Alex Mercier',
+              prefixIcon: const Icon(Icons.person_outline_rounded),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+
         TextField(
           controller: _emailController,
           keyboardType: TextInputType.emailAddress,
@@ -194,9 +236,11 @@ class _ClerkAuthGateScreenState extends State<ClerkAuthGateScreen> {
               ? null
               : () => widget.authService.sendEmailOtpCode(
                     _emailController.text,
+                    displayName: _nameController.text,
+                    isSignUp: _isSignUpMode,
                   ),
           icon: const Icon(Icons.mark_email_read_outlined),
-          label: const Text('Send Login Code'),
+          label: Text(_isSignUpMode ? 'Create Account' : 'Send Login Code'),
           style: OutlinedButton.styleFrom(
             minimumSize: const Size.fromHeight(48),
           ),
